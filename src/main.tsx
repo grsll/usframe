@@ -22,12 +22,14 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error in USFRAME App:', error, errorInfo);
+    console.error('Error in USFRAME App:', error, errorInfo);
   }
 
   public handleReset = () => {
     try {
-      localStorage.clear();
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.clear();
+      }
     } catch {}
     window.location.reload();
   };
@@ -71,10 +73,10 @@ class ErrorBoundary extends Component<Props, State> {
               US
             </div>
             <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 8px' }}>
-              Memulihkan Sesi Pasangan
+              Memulihkan Ruang Pasangan
             </h2>
             <p style={{ fontSize: '13px', color: '#78716C', lineHeight: '1.6', margin: '0 0 20px' }}>
-              Terjadi sedikit kendala sinkronisasi data lokal. Klik tombol di bawah untuk menyegarkan dan memulihkan ruang pasangan Anda.
+              Terjadi sedikit penyesuaian cache browser. Klik tombol di bawah untuk menyegarkan dan memuat ruang pasangan Anda.
             </p>
             <button
               onClick={this.handleReset}
@@ -100,10 +102,13 @@ class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  ReactDOM.createRoot(rootElement).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+}

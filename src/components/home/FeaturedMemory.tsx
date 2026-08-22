@@ -11,7 +11,15 @@ interface FeaturedMemoryProps {
 export const FeaturedMemory: React.FC<FeaturedMemoryProps> = ({ memory }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  if (!memory) return null;
+  if (!memory) {
+    return (
+      <div className="bg-surface rounded-3xl border border-border p-8 text-center shadow-soft flex flex-col items-center justify-center min-h-[280px]">
+        <Sparkles className="w-8 h-8 text-terracotta-500 mb-2" />
+        <h3 className="font-serif text-lg font-semibold text-foreground">Belum ada kenangan yang disorot</h3>
+        <p className="text-xs text-foreground-muted mt-1">Tambahkan kenangan pertama kalian untuk ditampilkan di sini.</p>
+      </div>
+    );
+  }
 
   return (
     <>

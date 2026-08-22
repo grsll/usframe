@@ -24,8 +24,9 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
   const userId = user?.id || 'user_kai';
   const partnerId = partner?.id || 'user_elena';
 
-  const hasMyAnswer = !!dailyQuestion.answers[userId];
-  const hasPartnerAnswer = !!dailyQuestion.answers[partnerId];
+  const answers = dailyQuestion?.answers || {};
+  const hasMyAnswer = !!answers[userId];
+  const hasPartnerAnswer = !!answers[partnerId];
   const bothAnswered = hasMyAnswer && hasPartnerAnswer;
 
   const handleSubmitAnswer = (e: React.FormEvent) => {
@@ -36,7 +37,7 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
     const updated: DailyQuestionType = {
       ...dailyQuestion,
       answers: {
-        ...dailyQuestion.answers,
+        ...(dailyQuestion?.answers || {}),
         [userId]: {
           userName: user?.name || 'Kai',
           answer: myAnswer.trim(),
@@ -48,7 +49,7 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
     storage.setDailyQuestion(updated);
     playSuccessChime();
     confetti({ particleCount: 30, spread: 50 });
-    success('Answer shared with your partner! 🤍');
+    success('Jawaban dibagikan kepada pasanganmu! 🤍');
     setIsSubmitting(false);
     onUpdate();
   };
@@ -63,23 +64,23 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
             <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
           </span>
           <div className="truncate">
-            <h3 className="font-serif text-lg sm:text-xl font-semibold text-foreground truncate">Daily Question</h3>
-            <p className="text-[11px] sm:text-xs text-foreground-muted truncate">Answers unlock when both of you share.</p>
+            <h3 className="font-serif text-lg sm:text-xl font-semibold text-foreground truncate">Pertanyaan Harian</h3>
+            <p className="text-[11px] sm:text-xs text-foreground-muted truncate">Jawaban terbuka otomatis saat kalian berdua saling berbagi.</p>
           </div>
         </div>
 
         <span className="text-[11px] sm:text-xs px-2.5 sm:px-3 py-1 rounded-full bg-surface-subtle border border-border font-medium text-foreground-muted shrink-0">
-          {dailyQuestion.date}
+          {dailyQuestion?.date || 'Hari Ini'}
         </span>
       </div>
 
       {/* The Question Prompt */}
       <div className="p-4 sm:p-5 rounded-2xl bg-surface-subtle/80 border border-border text-center space-y-1.5 sm:space-y-2">
         <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-terracotta-600 dark:text-terracotta-400">
-          Today's Prompt
+          Pertanyaan Hari Ini
         </span>
         <h4 className="font-serif text-lg sm:text-2xl font-medium text-foreground max-w-xl mx-auto leading-snug sm:leading-relaxed">
-          "{dailyQuestion.question}"
+          "{dailyQuestion?.question || 'Hal kecil apa dari pasanganmu yang paling kamu syukuri hari ini?'}"
         </h4>
       </div>
 
@@ -87,8 +88,8 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
       {!hasMyAnswer ? (
         <form onSubmit={handleSubmitAnswer} className="space-y-3">
           <Textarea
-            label="Your Answer"
-            placeholder="Write honestly from the heart..."
+            label="Jawabanmu"
+            placeholder="Tuliskan dengan tulus dari hati..."
             value={myAnswer}
             onChange={(e) => setMyAnswer(e.target.value)}
             required
@@ -96,7 +97,7 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
           <div className="flex justify-end">
             <Button type="submit" variant="primary" disabled={isSubmitting || !myAnswer.trim()}>
               <Send className="w-4 h-4 mr-2" />
-              <span>Share My Answer</span>
+              <span>Bagikan Jawaban</span>
             </Button>
           </div>
         </form>
@@ -108,12 +109,12 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
             <div className="p-3.5 sm:p-4 rounded-2xl bg-terracotta-50/50 dark:bg-terracotta-950/40 border border-terracotta-200/80 dark:border-terracotta-800/80 space-y-1.5 sm:space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-terracotta-800 dark:text-terracotta-200">
-                  {user?.name || 'You'}
+                  {user?.name || 'Kamu'}
                 </span>
-                <span className="text-[10px] text-foreground-subtle">Shared</span>
+                <span className="text-[10px] text-foreground-subtle">Dibagikan</span>
               </div>
               <p className="text-xs sm:text-sm text-foreground leading-relaxed italic">
-                "{dailyQuestion.answers[userId]?.answer}"
+                "{answers[userId]?.answer}"
               </p>
             </div>
 
@@ -124,17 +125,17 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
                   {partner?.name || 'Elena'}
                 </span>
                 <span className="text-[10px] text-foreground-subtle">
-                  {hasPartnerAnswer ? 'Shared' : 'Thinking...'}
+                  {hasPartnerAnswer ? 'Dibagikan' : 'Sedang menulis...'}
                 </span>
               </div>
 
               {hasPartnerAnswer ? (
                 <p className="text-xs sm:text-sm text-foreground leading-relaxed italic">
-                  "{dailyQuestion.answers[partnerId]?.answer}"
+                  "{answers[partnerId]?.answer}"
                 </p>
               ) : (
                 <div className="py-3 text-center text-xs text-foreground-muted">
-                  Waiting for {partner?.name || 'your partner'} to reply to unlock!
+                  Menunggu {partner?.name || 'pasanganmu'} menjawab untuk membuka kunci!
                 </div>
               )}
             </div>
@@ -144,7 +145,7 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
           {bothAnswered && (
             <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs text-center font-medium flex items-center justify-center gap-1.5">
               <Heart className="w-4 h-4 text-emerald-600 dark:text-emerald-400 fill-current" />
-              <span>Both answered! Another memory added to your journey.</span>
+              <span>Kalian berdua telah menjawab! Kenangan manis baru terukir.</span>
             </div>
           )}
         </div>

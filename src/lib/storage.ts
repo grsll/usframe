@@ -25,20 +25,42 @@ const KEYS = {
   AUTH_SESSION: 'us_auth_session'
 };
 
+// In-memory cache fallback in case localStorage is blocked by browser policy
+const memoryStore: Record<string, string> = {};
+
+const safeGetItem = (key: string): string | null => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage.getItem(key);
+    }
+  } catch (err) {
+    // localStorage unavailable or restricted
+  }
+  return memoryStore[key] ?? null;
+};
+
+const safeSetItem = (key: string, value: string): void => {
+  memoryStore[key] = value;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, value);
+    }
+  } catch (err) {
+    // localStorage quota exceeded or restricted
+  }
+};
+
 const safeParse = <T>(key: string, fallback: T): T => {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = safeGetItem(key);
     if (!raw || raw === 'undefined' || raw === 'null') {
-      localStorage.setItem(key, JSON.stringify(fallback));
+      safeSetItem(key, JSON.stringify(fallback));
       return fallback;
     }
     const parsed = JSON.parse(raw);
     return parsed ?? fallback;
   } catch (err) {
-    console.warn(`Error parsing localStorage key "${key}", reverting to fallback`, err);
-    try {
-      localStorage.setItem(key, JSON.stringify(fallback));
-    } catch {}
+    safeSetItem(key, JSON.stringify(fallback));
     return fallback;
   }
 };
@@ -48,36 +70,29 @@ export const storage = {
     return safeParse(KEYS.USER, INITIAL_USER);
   },
   setUser: (user: UserProfile) => {
-    try {
-      localStorage.setItem(KEYS.USER, JSON.stringify(user));
-    } catch {}
+    safeSetItem(KEYS.USER, JSON.stringify(user));
   },
 
   getPartner: (): UserProfile => {
     return safeParse(KEYS.PARTNER, INITIAL_PARTNER);
   },
   setPartner: (partner: UserProfile) => {
-    try {
-      localStorage.setItem(KEYS.PARTNER, JSON.stringify(partner));
-    } catch {}
+    safeSetItem(KEYS.PARTNER, JSON.stringify(partner));
   },
 
   getCouple: (): Couple => {
     return safeParse(KEYS.COUPLE, INITIAL_COUPLE);
   },
   setCouple: (couple: Couple) => {
-    try {
-      localStorage.setItem(KEYS.COUPLE, JSON.stringify(couple));
-    } catch {}
+    safeSetItem(KEYS.COUPLE, JSON.stringify(couple));
   },
 
   getMemories: (): Memory[] => {
-    return safeParse(KEYS.MEMORIES, INITIAL_MEMORIES);
+    const list = safeParse<Memory[]>(KEYS.MEMORIES, INITIAL_MEMORIES);
+    return Array.isArray(list) && list.length > 0 ? list : INITIAL_MEMORIES;
   },
   setMemories: (memories: Memory[]) => {
-    try {
-      localStorage.setItem(KEYS.MEMORIES, JSON.stringify(memories));
-    } catch {}
+    safeSetItem(KEYS.MEMORIES, JSON.stringify(memories));
   },
   addMemory: (memory: Memory) => {
     const memories = storage.getMemories();
@@ -87,12 +102,11 @@ export const storage = {
   },
 
   getMilestones: (): Milestone[] => {
-    return safeParse(KEYS.MILESTONES, INITIAL_MILESTONES);
+    const list = safeParse<Milestone[]>(KEYS.MILESTONES, INITIAL_MILESTONES);
+    return Array.isArray(list) && list.length > 0 ? list : INITIAL_MILESTONES;
   },
   setMilestones: (milestones: Milestone[]) => {
-    try {
-      localStorage.setItem(KEYS.MILESTONES, JSON.stringify(milestones));
-    } catch {}
+    safeSetItem(KEYS.MILESTONES, JSON.stringify(milestones));
   },
   addMilestone: (milestone: Milestone) => {
     const list = storage.getMilestones();
@@ -102,12 +116,11 @@ export const storage = {
   },
 
   getCountdowns: (): Countdown[] => {
-    return safeParse(KEYS.COUNTDOWNS, INITIAL_COUNTDOWNS);
+    const list = safeParse<Countdown[]>(KEYS.COUNTDOWNS, INITIAL_COUNTDOWNS);
+    return Array.isArray(list) && list.length > 0 ? list : INITIAL_COUNTDOWNS;
   },
   setCountdowns: (countdowns: Countdown[]) => {
-    try {
-      localStorage.setItem(KEYS.COUNTDOWNS, JSON.stringify(countdowns));
-    } catch {}
+    safeSetItem(KEYS.COUNTDOWNS, JSON.stringify(countdowns));
   },
   addCountdown: (countdown: Countdown) => {
     const list = storage.getCountdowns();
@@ -117,12 +130,11 @@ export const storage = {
   },
 
   getLoveNotes: (): LoveNote[] => {
-    return safeParse(KEYS.LOVE_NOTES, INITIAL_LOVE_NOTES);
+    const list = safeParse<LoveNote[]>(KEYS.LOVE_NOTES, INITIAL_LOVE_NOTES);
+    return Array.isArray(list) && list.length > 0 ? list : INITIAL_LOVE_NOTES;
   },
   setLoveNotes: (notes: LoveNote[]) => {
-    try {
-      localStorage.setItem(KEYS.LOVE_NOTES, JSON.stringify(notes));
-    } catch {}
+    safeSetItem(KEYS.LOVE_NOTES, JSON.stringify(notes));
   },
   addLoveNote: (note: LoveNote) => {
     const list = storage.getLoveNotes();
@@ -132,26 +144,27 @@ export const storage = {
   },
 
   getDailyQuestion: (): DailyQuestion => {
-    return safeParse(KEYS.DAILY_QUESTION, INITIAL_DAILY_QUESTION);
+    const dq = safeParse<DailyQuestion>(KEYS.DAILY_QUESTION, INITIAL_DAILY_QUESTION);
+    return dq && dq.question && dq.answers ? dq : INITIAL_DAILY_QUESTION;
   },
   setDailyQuestion: (dq: DailyQuestion) => {
-    try {
-      localStorage.setItem(KEYS.DAILY_QUESTION, JSON.stringify(dq));
-    } catch {}
+    safeSetItem(KEYS.DAILY_QUESTION, JSON.stringify(dq));
   },
 
   getBucketList: (): BucketListItem[] => {
-    return safeParse(KEYS.BUCKET_LIST, INITIAL_BUCKET_LIST);
+    const list = safeParse<BucketListItem[]>(KEYS.BUCKET_LIST, INITIAL_BUCKET_LIST);
+    return Array.isArray(list) && list.length > 0 ? list : INITIAL_BUCKET_LIST;
   },
   setBucketList: (items: BucketListItem[]) => {
-    try {
-      localStorage.setItem(KEYS.BUCKET_LIST, JSON.stringify(items));
-    } catch {}
+    safeSetItem(KEYS.BUCKET_LIST, JSON.stringify(items));
   },
 
   resetAll: () => {
     try {
-      localStorage.clear();
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.clear();
+      }
     } catch {}
+    Object.keys(memoryStore).forEach(k => delete memoryStore[k]);
   }
 };
