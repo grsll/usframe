@@ -38,9 +38,9 @@ export const OnboardingPage: React.FC = () => {
       });
 
       confetti({ particleCount: 50, spread: 70 });
-      success('Couple room created! Welcome to your shared space 🤍');
+      success('Ruangan pasangan berhasil dibuat! Selamat datang di ruang kalian 🤍');
     } catch (err: any) {
-      error(err.message || 'Failed to create couple room.');
+      error(err.message || 'Gagal membuat ruangan pasangan.');
     } finally {
       setIsLoading(false);
     }
@@ -54,9 +54,9 @@ export const OnboardingPage: React.FC = () => {
     try {
       await joinCoupleRoom(inviteCode);
       confetti({ particleCount: 50, spread: 70 });
-      success('Joined couple room successfully! 🤍');
+      success('Berhasil bergabung ke ruangan pasangan! 🤍');
     } catch (err: any) {
-      error(err.message || 'Invalid invite code.');
+      error(err.message || 'Kode undangan tidak valid.');
     } finally {
       setIsLoading(false);
     }
@@ -72,10 +72,10 @@ export const OnboardingPage: React.FC = () => {
             <Heart className="w-6 h-6 fill-current animate-pulse-subtle" />
           </div>
           <h2 className="font-serif text-2xl sm:text-3xl font-medium text-foreground tracking-tight">
-            Connect With Your Partner
+            Hubungkan Ruang Pasangan
           </h2>
           <p className="text-xs sm:text-sm text-foreground-muted">
-            Hello {user?.name || 'there'}! Choose how you'd like to link your space.
+            Halo {user?.name || 'kamu'}! Pilih cara kalian ingin menyatukan ruang.
           </p>
         </div>
 
@@ -90,7 +90,7 @@ export const OnboardingPage: React.FC = () => {
                 : 'text-foreground-muted hover:text-foreground'
             }`}
           >
-            Create New Couple Room
+            Buat Ruang Baru
           </button>
           <button
             type="button"
@@ -101,22 +101,22 @@ export const OnboardingPage: React.FC = () => {
                 : 'text-foreground-muted hover:text-foreground'
             }`}
           >
-            I Have an Invite Code
+            Saya Punya Kode Undangan
           </button>
         </div>
 
         {tab === 'create' ? (
           <form onSubmit={handleCreate} className="space-y-4">
             <Input
-              label="Partner's Name"
-              placeholder="e.g. Elena, Maya, Ken"
+              label="Nama Panggilan Pasangan"
+              placeholder="contoh: Elena, Maya, Ken, Sarah"
               value={partnerName}
               onChange={(e) => setPartnerName(e.target.value)}
               required
             />
 
             <Input
-              label="Relationship Start Date"
+              label="Tanggal Mulai Hubungan / Jadian"
               type="date"
               value={relationshipDate}
               onChange={(e) => setRelationshipDate(e.target.value)}
@@ -125,25 +125,25 @@ export const OnboardingPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Your City"
+                label="Kota Asal Kamu"
                 value={userCity}
                 onChange={(e) => setUserCity(e.target.value)}
-                placeholder="e.g. Tokyo"
+                placeholder="contoh: Tokyo, Jakarta"
               />
               <Input
-                label="Partner's City"
+                label="Kota Asal Pasangan"
                 value={partnerCity}
                 onChange={(e) => setPartnerCity(e.target.value)}
-                placeholder="e.g. Paris"
+                placeholder="contoh: Paris, London"
               />
             </div>
 
             <Input
-              label="Next Meeting Date (Optional)"
+              label="Tanggal Pertemuan Berikutnya (Opsional)"
               type="date"
               value={nextMeetDate}
               onChange={(e) => setNextMeetDate(e.target.value)}
-              helperText="We'll start an elegant countdown on your Home screen."
+              helperText="Kami akan membuat hitung mundur anggun di Beranda kalian."
             />
 
             <Button
@@ -153,14 +153,14 @@ export const OnboardingPage: React.FC = () => {
               isLoading={isLoading}
               className="w-full font-medium shadow-sm mt-2"
             >
-              Generate Couple Room & Invite Code →
+              Buat Ruangan & Buat Kode Undangan →
             </Button>
           </form>
         ) : (
           <form onSubmit={handleJoin} className="space-y-4">
             <Input
-              label="6-Digit Invitation Code"
-              placeholder="e.g. US7788"
+              label="Kode Undangan 6 Karakter"
+              placeholder="contoh: US7788"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               className="font-mono text-center text-lg tracking-widest uppercase font-semibold"
@@ -168,7 +168,7 @@ export const OnboardingPage: React.FC = () => {
             />
 
             <p className="text-xs text-foreground-muted text-center leading-relaxed">
-              Ask your partner for the 6-character code shown on their invitation screen.
+              Minta 6 karakter kode yang tampil di layar pasanganmu untuk terhubung.
             </p>
 
             <Button
@@ -178,7 +178,7 @@ export const OnboardingPage: React.FC = () => {
               isLoading={isLoading}
               className="w-full font-medium shadow-sm"
             >
-              Join Couple Room →
+              Gabung ke Ruang Pasangan →
             </Button>
           </form>
         )}

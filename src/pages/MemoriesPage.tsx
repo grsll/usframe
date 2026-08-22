@@ -33,27 +33,27 @@ export const MemoriesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-8 pb-12 animate-fade-in max-w-7xl mx-auto">
+    <div className="space-y-6 sm:space-y-8 pb-12 animate-fade-in max-w-7xl mx-auto">
       
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface border border-border rounded-3xl p-6 sm:p-8 shadow-soft">
-        <div className="space-y-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-surface border border-border rounded-3xl p-4 sm:p-8 shadow-soft">
+        <div className="space-y-0.5 sm:space-y-1">
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-terracotta-50 dark:bg-terracotta-950/60 text-terracotta-500">
-              <ImageIcon className="w-5 h-5" />
+            <span className="p-1.5 sm:p-2 rounded-xl bg-terracotta-50 dark:bg-terracotta-950/60 text-terracotta-500">
+              <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </span>
-            <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-foreground tracking-tight">
-              Couple Memory Vault
+            <h1 className="font-serif text-xl sm:text-3xl font-semibold text-foreground tracking-tight">
+              Brankas Kenangan Berdua
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-foreground-muted">
-            All your photos, photobooth strips, and private moments safely stored for two.
+            Semua foto, strip photobooth, dan cerita privat tersimpan aman hanya untuk kalian berdua.
           </p>
         </div>
 
-        <Button onClick={() => setIsAddOpen(true)} variant="primary" size="md">
+        <Button onClick={() => setIsAddOpen(true)} variant="primary" size="md" className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-1.5" />
-          <span>Add New Memory</span>
+          <span>Tambah Kenangan</span>
         </Button>
       </div>
 

@@ -21,7 +21,7 @@ export const FeaturedMemory: React.FC<FeaturedMemoryProps> = ({ memory }) => {
           {/* Large Visual Photo */}
           <div 
             onClick={() => setIsModalOpen(true)}
-            className="lg:col-span-7 relative h-72 sm:h-96 lg:h-full min-h-[320px] overflow-hidden cursor-pointer bg-stone-900"
+            className="lg:col-span-7 relative h-72 sm:h-96 lg:h-full min-h-[280px] sm:min-h-[320px] overflow-hidden cursor-pointer bg-stone-900"
           >
             <img
               src={memory.media_url}
@@ -34,7 +34,7 @@ export const FeaturedMemory: React.FC<FeaturedMemoryProps> = ({ memory }) => {
             <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
               <span className="px-3 py-1 rounded-full bg-white/90 dark:bg-black/80 backdrop-blur-md text-[11px] font-semibold text-foreground flex items-center gap-1.5 shadow-sm">
                 <Sparkles className="w-3 h-3 text-terracotta-500" />
-                Remember this day?
+                Ingat hari ini?
               </span>
             </div>
 
@@ -44,9 +44,9 @@ export const FeaturedMemory: React.FC<FeaturedMemoryProps> = ({ memory }) => {
           </div>
 
           {/* Editorial Story Details */}
-          <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 text-xs text-foreground-muted">
+          <div className="lg:col-span-5 p-5 sm:p-8 flex flex-col justify-between space-y-4">
+            <div className="space-y-2.5 sm:space-y-3">
+              <div className="flex items-center gap-2.5 sm:gap-3 text-xs text-foreground-muted">
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-terracotta-500" />
                   {formatDateFull(memory.date)}
@@ -54,33 +54,33 @@ export const FeaturedMemory: React.FC<FeaturedMemoryProps> = ({ memory }) => {
                 {memory.location && (
                   <>
                     <span>•</span>
-                    <span className="flex items-center gap-1.5 truncate">
-                      <MapPin className="w-3.5 h-3.5 text-terracotta-500" />
+                    <span className="flex items-center gap-1 truncate">
+                      <MapPin className="w-3.5 h-3.5 text-terracotta-500 shrink-0" />
                       {memory.location}
                     </span>
                   </>
                 )}
               </div>
 
-              <h2 className="font-serif text-2xl sm:text-3xl font-medium text-foreground tracking-tight leading-snug">
+              <h2 className="font-serif text-xl sm:text-3xl font-medium text-foreground tracking-tight leading-snug">
                 {memory.title}
               </h2>
 
-              <p className="text-sm sm:text-base text-foreground-muted leading-relaxed font-normal">
+              <p className="text-xs sm:text-base text-foreground-muted leading-relaxed font-normal">
                 "{memory.caption}"
               </p>
             </div>
 
-            <div className="pt-4 border-t border-border flex items-center justify-between">
+            <div className="pt-3 sm:pt-4 border-t border-border flex items-center justify-between">
               <span className="text-xs text-foreground-subtle">
-                Captured by <strong className="text-foreground font-medium">{memory.creator_name || 'Us'}</strong>
+                Diabadikan oleh <strong className="text-foreground font-medium">{memory.creator_name || 'Kita'}</strong>
               </span>
 
               <button
                 onClick={() => setIsModalOpen(true)}
                 className="text-xs font-semibold text-terracotta-600 dark:text-terracotta-400 hover:text-terracotta-700 flex items-center gap-1 transition-colors cursor-pointer"
               >
-                <span>View Full Memory</span>
+                <span>Lihat Kenangan</span>
                 <span>→</span>
               </button>
             </div>
@@ -105,7 +105,7 @@ export const FeaturedMemory: React.FC<FeaturedMemoryProps> = ({ memory }) => {
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="font-serif text-2xl font-medium text-foreground">{memory.title}</h3>
+              <h3 className="font-serif text-xl sm:text-2xl font-medium text-foreground">{memory.title}</h3>
               <span className="text-xs text-foreground-muted">{formatDateFull(memory.date)}</span>
             </div>
             {memory.location && (

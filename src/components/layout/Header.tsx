@@ -24,7 +24,7 @@ export const Header: React.FC = () => {
       colors: ['#D95D39', '#F472B6', '#FDA4AF']
     });
 
-    success(`Heartbeat signal sent to ${partner?.name || 'your partner'} 🤍`);
+    success(`Sinyal rindu terkirim ke ${partner?.name || 'pasanganmu'} 🤍`);
     setTimeout(() => setPulseSending(false), 2000);
   };
 
@@ -53,7 +53,7 @@ export const Header: React.FC = () => {
               </span>
               <span className="text-[10px] sm:text-[11px] text-foreground-subtle flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Connected
+                Dua Terhubung
               </span>
             </div>
           </button>
@@ -65,7 +65,7 @@ export const Header: React.FC = () => {
               <span>{couple.user_city || 'Tokyo'}</span>
               <span className="text-foreground-subtle">⇄</span>
               <span>{couple.partner_city || 'Paris'}</span>
-              <span className="text-foreground-subtle">({couple.distance_km?.toLocaleString() || '9,710'} km)</span>
+              <span className="text-foreground-subtle">({couple.distance_km?.toLocaleString('id-ID') || '9.710'} km)</span>
             </div>
           )}
         </div>
@@ -77,7 +77,7 @@ export const Header: React.FC = () => {
           <button
             onClick={handlePulse}
             disabled={pulseSending}
-            title="Send gentle heartbeat pulse to partner"
+            title="Kirim sinyal detak jantung rindu ke pasangan"
             className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
               pulseSending
                 ? 'bg-rose-100 dark:bg-rose-950/80 border-rose-300 text-rose-700 animate-pulse-subtle'
@@ -85,15 +85,15 @@ export const Header: React.FC = () => {
             }`}
           >
             <Heart className={`w-3.5 h-3.5 text-terracotta-500 fill-current ${pulseSending ? 'animate-bounce' : ''}`} />
-            <span className="text-[11px] sm:text-xs">{pulseSending ? 'Sent! 🤍' : 'I Miss You'}</span>
+            <span className="text-[11px] sm:text-xs">{pulseSending ? 'Terkirim! 🤍' : 'Aku Kangen'}</span>
           </button>
 
           {/* Theme Selector */}
           <button
             onClick={cycleTheme}
             className="p-1.5 sm:p-2 rounded-xl text-foreground-muted hover:text-foreground hover:bg-surface-subtle border border-transparent hover:border-border transition-colors cursor-pointer"
-            title={`Theme: ${theme}`}
-            aria-label="Toggle theme"
+            title={`Tema: ${theme}`}
+            aria-label="Ganti tema"
           >
             {theme === 'light' ? (
               <Sun className="w-4 h-4 text-amber-500" />
@@ -108,22 +108,22 @@ export const Header: React.FC = () => {
           <button
             onClick={() => setCurrentView('settings')}
             className="flex items-center gap-1.5 pl-1 pr-1.5 sm:pr-2 py-1 rounded-full bg-surface-subtle hover:bg-surface border border-border transition-all cursor-pointer"
-            title="Couple & Profile Settings"
+            title="Pengaturan Profil & Pasangan"
           >
             <div className="flex -space-x-1.5 sm:-space-x-2">
               <img
                 src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                alt={user?.name || 'You'}
+                alt={user?.name || 'Kamu'}
                 className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-background ring-1 ring-border"
               />
               <img
                 src={partner?.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100'}
-                alt={partner?.name || 'Partner'}
+                alt={partner?.name || 'Pasangan'}
                 className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-background ring-1 ring-border"
               />
             </div>
             <span className="text-xs font-medium text-foreground hidden sm:inline">
-              {user?.name || 'You'} & {partner?.name || 'Elena'}
+              {user?.name || 'Kamu'} & {partner?.name || 'Elena'}
             </span>
           </button>
         </div>

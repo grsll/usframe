@@ -14,18 +14,18 @@ export const Navigation: React.FC = () => {
   const { currentView, setCurrentView } = useAuth();
 
   const navItems = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'memories', label: 'Memories', icon: ImageIcon },
+    { id: 'home', label: 'Beranda', icon: Home },
+    { id: 'memories', label: 'Kenangan', icon: ImageIcon },
     { id: 'usframe', label: 'USFRAME', icon: Camera, isSignature: true },
-    { id: 'timeline', label: 'Timeline', icon: GitCommit },
-    { id: 'together', label: 'Together', icon: HeartHandshake },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'timeline', label: 'Lini Masa', icon: GitCommit },
+    { id: 'together', label: 'Bersama', icon: HeartHandshake },
+    { id: 'settings', label: 'Pengaturan', icon: Settings },
   ];
 
   return (
     <>
       {/* Desktop Editorial Nav Bar */}
-      <nav aria-label="Desktop Main Navigation" className="hidden md:flex items-center justify-center py-3 border-b border-border/80 bg-surface/50 backdrop-blur-sm">
+      <nav aria-label="Navigasi Utama Desktop" className="hidden md:flex items-center justify-center py-3 border-b border-border/80 bg-surface/50 backdrop-blur-sm">
         <div className="flex items-center gap-1.5 p-1 bg-surface-subtle border border-border rounded-2xl shadow-soft">
           {navItems.map(item => {
             const Icon = item.icon;
@@ -59,7 +59,7 @@ export const Navigation: React.FC = () => {
 
       {/* Mobile Android / iOS Floating Bottom Dock */}
       <nav 
-        aria-label="Mobile Navigation" 
+        aria-label="Navigasi Mobile" 
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-xl border-t border-border px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lg select-none"
       >
         <div className="flex items-center justify-around max-w-lg mx-auto">
@@ -73,7 +73,7 @@ export const Navigation: React.FC = () => {
                   key={item.id}
                   onClick={() => setCurrentView(item.id as any)}
                   className="flex flex-col items-center justify-center -mt-6 group focus:outline-none cursor-pointer relative"
-                  aria-label="Open USFRAME photobooth"
+                  aria-label="Buka photobooth USFRAME"
                 >
                   <div className={cn(
                     "w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 group-active:scale-90 border-2 border-surface",

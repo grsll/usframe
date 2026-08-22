@@ -11,12 +11,12 @@ export const CoupleHeader: React.FC = () => {
   const duration = calculateRelationshipDuration(couple?.relationship_start_date || '2025-06-10');
 
   const moods = [
-    { emoji: '🥰', label: 'Missing you' },
-    { emoji: '✨', label: 'Peaceful' },
-    { emoji: '☕', label: 'Working hard' },
-    { emoji: '🥺', label: 'Need a hug' },
-    { emoji: '🌙', label: 'Thinking of you' },
-    { emoji: '🎉', label: 'Excited' },
+    { emoji: '🥰', label: 'Sedang rindu & tersenyum' },
+    { emoji: '✨', label: 'Tenang & menghitung hari' },
+    { emoji: '☕', label: 'Semangat kerja untuk kita' },
+    { emoji: '🥺', label: 'Butuh pelukan hangat' },
+    { emoji: '🌙', label: 'Kepikiran kamu malam ini' },
+    { emoji: '🎉', label: 'Lagi senang banget hari ini' },
   ];
 
   return (
@@ -31,7 +31,7 @@ export const CoupleHeader: React.FC = () => {
             <div className="relative group">
               <img
                 src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300'}
-                alt={user?.name || 'You'}
+                alt={user?.name || 'Kamu'}
                 className="w-16 h-16 sm:w-24 sm:h-24 rounded-full object-cover border-3 sm:border-4 border-surface shadow-medium ring-2 ring-terracotta-500/30"
               />
               <span className="absolute bottom-0 right-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] sm:text-xs shadow-sm">
@@ -47,7 +47,7 @@ export const CoupleHeader: React.FC = () => {
             <div className="relative group">
               <img
                 src={partner?.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300'}
-                alt={partner?.name || 'Partner'}
+                alt={partner?.name || 'Pasangan'}
                 className="w-16 h-16 sm:w-24 sm:h-24 rounded-full object-cover border-3 sm:border-4 border-surface shadow-medium ring-2 ring-terracotta-500/30"
               />
               <span className="absolute bottom-0 right-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] sm:text-xs shadow-sm">
@@ -64,7 +64,7 @@ export const CoupleHeader: React.FC = () => {
               </h1>
               <Badge variant="terracotta" size="sm">
                 <Sparkles className="w-3 h-3 text-terracotta-500" />
-                <span>Our Space</span>
+                <span>Ruang Kita</span>
               </Badge>
             </div>
 
@@ -74,7 +74,7 @@ export const CoupleHeader: React.FC = () => {
                 {couple?.user_city || 'Tokyo'} ⇄ {couple?.partner_city || 'Paris'}
               </span>
               <span>•</span>
-              <span>Since {new Date(couple?.relationship_start_date || '2025-06-10').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              <span>Sejak {new Date(couple?.relationship_start_date || '2025-06-10').toLocaleDateString('id-ID', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
             </div>
 
             {/* Quick Mood Status Preview */}
@@ -84,11 +84,11 @@ export const CoupleHeader: React.FC = () => {
                 className="text-[11px] sm:text-xs px-2.5 py-1 rounded-full bg-surface-subtle hover:bg-surface border border-border text-foreground-muted hover:text-foreground transition-all flex items-center gap-1 cursor-pointer active:scale-95"
               >
                 <Smile className="w-3.5 h-3.5 text-terracotta-500" />
-                <span>You: <b>{user?.mood_label || 'Happy'}</b></span>
+                <span>Kamu: <b>{user?.mood_label || 'Bahagia'}</b></span>
               </button>
 
               <span className="text-[11px] sm:text-xs px-2.5 py-1 rounded-full bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300">
-                {partner?.name || 'Elena'}: <b>{partner?.mood_label || 'Missing you'}</b>
+                {partner?.name || 'Elena'}: <b>{partner?.mood_label || 'Sedang rindu'}</b>
               </span>
             </div>
           </div>
@@ -97,10 +97,10 @@ export const CoupleHeader: React.FC = () => {
         {/* Dynamic Duration Counter Widget */}
         <div className="w-full md:w-auto flex flex-col items-center md:items-end justify-center bg-surface-subtle/80 border border-border rounded-2xl p-4 sm:p-5 text-center md:text-right">
           <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-widest text-foreground-subtle mb-0.5">
-            Time Together
+            Waktu Bersama
           </span>
           <div className="font-serif text-2xl sm:text-3xl font-bold text-foreground text-terracotta-600 dark:text-terracotta-400">
-            {duration.totalDays.toLocaleString()} Days
+            {duration.totalDays.toLocaleString('id-ID')} Hari
           </div>
           <p className="text-[11px] sm:text-xs text-foreground-muted mt-0.5">
             {duration.formattedString}
@@ -112,7 +112,7 @@ export const CoupleHeader: React.FC = () => {
       {/* Mood Picker Dropdown / Bar */}
       {showMoodPicker && (
         <div className="mt-4 pt-3.5 border-t border-border flex flex-wrap items-center gap-1.5 sm:gap-2 animate-fade-in">
-          <span className="text-xs font-semibold text-foreground-muted w-full sm:w-auto mr-1">Update your mood:</span>
+          <span className="text-xs font-semibold text-foreground-muted w-full sm:w-auto mr-1">Perbarui perasaanmu untuk {partner?.name || 'pasangan'}:</span>
           {moods.map((m, idx) => (
             <button
               key={idx}

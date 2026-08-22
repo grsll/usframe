@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from '../layout/Modal';
 import { Input, Textarea } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { Milestone, MilestoneCategory } from '../../types';
+import { Milestone } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { Upload } from 'lucide-react';
@@ -26,7 +26,6 @@ export const AddMilestoneModal: React.FC<AddMilestoneModalProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [location, setLocation] = useState('');
   const [imageUrl, setImageUrl] = useState('');
-  const [category, setCategory] = useState<MilestoneCategory>('dating');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -51,12 +50,12 @@ export const AddMilestoneModal: React.FC<AddMilestoneModalProps> = ({
       date,
       location,
       image_url: imageUrl || undefined,
-      category,
+      category: 'dating',
       created_at: new Date().toISOString()
     };
 
     onAddMilestone(newMilestone);
-    success('New milestone added to your story! ✨');
+    success('Momen berharga baru berhasil ditambahkan ke kisah kalian! ✨');
     onClose();
 
     // Reset
@@ -70,22 +69,22 @@ export const AddMilestoneModal: React.FC<AddMilestoneModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Add Story Milestone"
-      subtitle="Document a key chapter or unforgettable memory in your timeline."
+      title="Tambah Momen Kisah"
+      subtitle="Abadikan babak penting atau kenangan tak terlupakan dalam lini masa."
       maxWidth="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
         <Input
-          label="Milestone Title"
-          placeholder="e.g. First Flight to Paris, Moving In Together"
+          label="Judul Momen"
+          placeholder="contoh: Pertama Kali Terbang ke Paris, Tinggal Bersama"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <Input
-            label="Date"
+            label="Tanggal"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -93,16 +92,16 @@ export const AddMilestoneModal: React.FC<AddMilestoneModalProps> = ({
           />
 
           <Input
-            label="Location (Optional)"
-            placeholder="e.g. CDG Airport, Tokyo, Rome"
+            label="Lokasi (Opsional)"
+            placeholder="contoh: Bandara CDG Paris, Tokyo, Roma"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
         </div>
 
         <Textarea
-          label="Story / Description"
-          placeholder="Describe what happened and why this milestone was special..."
+          label="Cerita / Kenangan Lengkap"
+          placeholder="Ceritakan apa yang terjadi dan mengapa momen ini begitu spesial bagi kalian..."
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           required
@@ -111,7 +110,7 @@ export const AddMilestoneModal: React.FC<AddMilestoneModalProps> = ({
         {/* Image Attachment */}
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-            Milestone Photo (Optional)
+            Foto Momen (Opsional)
           </label>
           {imageUrl ? (
             <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden bg-stone-900 border border-border">
@@ -121,24 +120,24 @@ export const AddMilestoneModal: React.FC<AddMilestoneModalProps> = ({
                 onClick={() => setImageUrl('')}
                 className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/70 text-white text-xs font-medium backdrop-blur-md cursor-pointer"
               >
-                Change Photo
+                Ganti Foto
               </button>
             </div>
           ) : (
-            <label className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-border hover:border-terracotta-400 rounded-2xl bg-surface-subtle/50 cursor-pointer transition-colors">
+            <label className="flex items-center justify-center gap-2 p-5 sm:p-6 border-2 border-dashed border-border hover:border-terracotta-400 rounded-2xl bg-surface-subtle/50 cursor-pointer transition-colors">
               <Upload className="w-5 h-5 text-terracotta-500" />
-              <span className="text-xs font-medium text-foreground">Upload a photo</span>
+              <span className="text-xs font-medium text-foreground">Unggah foto momen</span>
               <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
             </label>
           )}
         </div>
 
-        <div className="pt-4 border-t border-border flex justify-end gap-2">
+        <div className="pt-3 border-t border-border flex flex-col sm:flex-row justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            Batal
           </Button>
           <Button type="submit" variant="primary" disabled={!title || !description}>
-            Save Milestone
+            Simpan Momen
           </Button>
         </div>
       </form>

@@ -7,14 +7,14 @@ export const SettingsPage: React.FC = () => {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   return (
-    <div className="space-y-8 pb-12 animate-fade-in max-w-4xl mx-auto">
+    <div className="space-y-6 sm:space-y-8 pb-12 animate-fade-in max-w-4xl mx-auto">
       
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-foreground tracking-tight">
-          Settings & Couple Space
+        <h1 className="font-serif text-2xl sm:text-3xl font-semibold text-foreground tracking-tight">
+          Pengaturan & Ruang Pasangan
         </h1>
         <p className="text-xs sm:text-sm text-foreground-muted mt-1">
-          Manage your personal identity, couple connection, and interface preferences.
+          Kelola profil pribadi, tautan pasangan, serta preferensi tampilan aplikasi.
         </p>
       </div>
 

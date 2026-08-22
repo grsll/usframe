@@ -26,7 +26,7 @@ export type Couple = {
   created_at?: string;
 };
 
-export type MemoryCategory = 'All' | 'Photobooth' | 'Date' | 'Travel' | 'Everyday' | 'Milestone';
+export type MemoryCategory = 'Semua' | 'Photobooth' | 'Kencan' | 'Perjalanan' | 'Sehari-hari' | 'Momen Spesial' | string;
 
 export type Memory = {
   id: string;
@@ -39,12 +39,12 @@ export type Memory = {
   media_type: 'image' | 'usframe_strip';
   date: string;
   location?: string;
-  category: MemoryCategory;
+  category: string;
   is_favorite: boolean;
   created_at: string;
 };
 
-export type MilestoneCategory = 'first_met' | 'dating' | 'first_trip' | 'flight_visit' | 'anniversary' | 'future_plan';
+export type MilestoneCategory = 'first_met' | 'dating' | 'first_trip' | 'flight_visit' | 'anniversary' | 'future_plan' | string;
 
 export type Milestone = {
   id: string;
@@ -54,7 +54,7 @@ export type Milestone = {
   date: string;
   location?: string;
   image_url?: string;
-  category: MilestoneCategory;
+  category: string;
   created_at: string;
 };
 
@@ -64,13 +64,13 @@ export type Countdown = {
   title: string;
   target_date: string;
   icon?: string;
-  category?: 'meet' | 'anniversary' | 'birthday' | 'trip' | 'special';
+  category?: 'meet' | 'anniversary' | 'birthday' | 'trip' | 'special' | string;
   is_pinned?: boolean;
   created_by: string;
   created_at: string;
 };
 
-export type NoteType = 'general' | 'open_when_sad' | 'open_when_miss' | 'anniversary' | 'letter';
+export type NoteType = 'general' | 'open_when_sad' | 'open_when_miss' | 'anniversary' | 'letter' | string;
 
 export type LoveNote = {
   id: string;
@@ -109,7 +109,7 @@ export type BucketListItem = {
   id: string;
   couple_id: string;
   title: string;
-  category: 'trip' | 'food' | 'activity' | 'future';
+  category: 'trip' | 'food' | 'activity' | 'future' | string;
   completed: boolean;
   target_location?: string;
   completed_at?: string | null;

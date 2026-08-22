@@ -50,7 +50,7 @@ const AppContent: React.FC = () => {
               </div>
               <div className="truncate">
                 <h4 className="text-xs font-bold text-rose-900 dark:text-rose-100 truncate">
-                  {pulseTriggered.from} sent a Heart Pulse!
+                  {pulseTriggered.from} Mengirimkan Sinyal Rindu!
                 </h4>
                 <p className="text-[11px] text-rose-700 dark:text-rose-300 truncate">
                   {pulseTriggered.message}
@@ -60,7 +60,7 @@ const AppContent: React.FC = () => {
             <button
               onClick={clearPulse}
               className="text-rose-500 hover:text-rose-800 p-1 shrink-0 cursor-pointer"
-              aria-label="Dismiss pulse"
+              aria-label="Tutup notifikasi rindu"
             >
               <X className="w-4 h-4" />
             </button>

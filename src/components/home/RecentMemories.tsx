@@ -14,34 +14,34 @@ export const RecentMemories: React.FC<RecentMemoriesProps> = ({ memories, onSele
   const recent = memories.slice(0, 5);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-3.5 sm:space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-serif text-xl sm:text-2xl font-medium text-foreground tracking-tight">
-            Recent Moments
+            Momen Terbaru
           </h3>
           <p className="text-xs sm:text-sm text-foreground-muted">
-            The small memories that build our story.
+            Kepingan kenangan yang membangun kisah kita.
           </p>
         </div>
         <button
           onClick={() => setCurrentView('memories')}
-          className="text-xs sm:text-sm font-semibold text-terracotta-600 dark:text-terracotta-400 hover:text-terracotta-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+          className="text-xs sm:text-sm font-semibold text-terracotta-600 dark:text-terracotta-400 hover:text-terracotta-700 flex items-center gap-1 transition-colors cursor-pointer"
         >
-          <span>View All Vault</span>
-          <ArrowRight className="w-4 h-4" />
+          <span>Lihat Semua</span>
+          <ArrowRight className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Horizontal Filmstrip Gallery */}
-      <div className="flex gap-4 overflow-x-auto pb-4 pt-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex gap-3.5 sm:gap-4 overflow-x-auto pb-4 pt-1 no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
         {recent.map(memory => (
           <div
             key={memory.id}
             onClick={() => onSelectMemory(memory)}
-            className="flex-shrink-0 w-64 sm:w-72 bg-surface border border-border rounded-2xl overflow-hidden shadow-soft hover:shadow-medium hover:-translate-y-1 transition-all duration-200 cursor-pointer group"
+            className="flex-shrink-0 w-60 sm:w-72 bg-surface border border-border rounded-2xl overflow-hidden shadow-soft hover:shadow-medium hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group"
           >
-            <div className="relative h-44 w-full overflow-hidden bg-stone-900">
+            <div className="relative h-40 sm:h-44 w-full overflow-hidden bg-stone-900">
               <img
                 src={memory.media_url}
                 alt={memory.title}
@@ -54,11 +54,11 @@ export const RecentMemories: React.FC<RecentMemoriesProps> = ({ memories, onSele
                 </span>
               )}
             </div>
-            <div className="p-4 space-y-1">
+            <div className="p-3.5 sm:p-4 space-y-1">
               <span className="text-[11px] text-foreground-subtle font-medium block">
                 {formatDatePretty(memory.date)} {memory.location ? `• ${memory.location}` : ''}
               </span>
-              <h4 className="font-serif text-base font-semibold text-foreground truncate group-hover:text-terracotta-600 transition-colors">
+              <h4 className="font-serif text-sm sm:text-base font-semibold text-foreground truncate group-hover:text-terracotta-600 transition-colors">
                 {memory.title}
               </h4>
               <p className="text-xs text-foreground-muted line-clamp-2 leading-relaxed">

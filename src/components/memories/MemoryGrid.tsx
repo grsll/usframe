@@ -17,15 +17,15 @@ export const MemoryGrid: React.FC<MemoryGridProps> = ({
   onToggleFavorite,
   onOpenAddMemory
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
 
-  const categories = ['All', 'Photobooth', 'Date', 'Travel', 'Everyday', 'Milestone'];
+  const categories = ['Semua', 'Photobooth', 'Kencan', 'Perjalanan', 'Sehari-hari', 'Momen Spesial'];
 
   const filteredMemories = useMemo(() => {
     return memories.filter(m => {
-      const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
+      const matchesCategory = selectedCategory === 'Semua' || m.category === selectedCategory;
       const matchesFavorite = !onlyFavorites || m.is_favorite;
       const matchesSearch = 
         !searchQuery.trim() ||
@@ -39,17 +39,17 @@ export const MemoryGrid: React.FC<MemoryGridProps> = ({
   }, [memories, selectedCategory, onlyFavorites, searchQuery]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       
       {/* Search and Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface p-4 rounded-3xl border border-border shadow-soft">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 bg-surface p-3 sm:p-4 rounded-2xl sm:rounded-3xl border border-border shadow-soft">
         
         {/* Search Input */}
         <div className="relative w-full sm:w-72">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted" />
           <input
             type="text"
-            placeholder="Search memories, locations, dates..."
+            placeholder="Cari kenangan, lokasi, tanggal..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-xl bg-surface-subtle border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:border-terracotta-500"
@@ -64,7 +64,7 @@ export const MemoryGrid: React.FC<MemoryGridProps> = ({
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                 selectedCategory === cat
-                  ? 'bg-terracotta-500 text-white shadow-xs'
+                  ? 'bg-terracotta-500 text-white shadow-xs font-semibold'
                   : 'bg-surface-subtle hover:bg-surface text-foreground-muted hover:text-foreground border border-border/80'
               }`}
             >
@@ -75,14 +75,14 @@ export const MemoryGrid: React.FC<MemoryGridProps> = ({
           {/* Favorite Toggle Button */}
           <button
             onClick={() => setOnlyFavorites(!onlyFavorites)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 border cursor-pointer ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 border cursor-pointer shrink-0 ${
               onlyFavorites
-                ? 'bg-rose-500 text-white border-rose-600'
+                ? 'bg-rose-500 text-white border-rose-600 font-semibold'
                 : 'bg-surface-subtle text-foreground-muted hover:text-foreground border-border/80'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${onlyFavorites ? 'fill-current' : ''}`} />
-            <span>Favorites</span>
+            <span>Favorit</span>
           </button>
         </div>
 
@@ -90,15 +90,15 @@ export const MemoryGrid: React.FC<MemoryGridProps> = ({
 
       {/* Gallery Count & Active Filter Indicator */}
       <div className="flex items-center justify-between text-xs text-foreground-muted px-1">
-        <span>Showing <strong>{filteredMemories.length}</strong> memories</span>
+        <span>Menampilkan <strong>{filteredMemories.length}</strong> kenangan</span>
         {searchQuery && (
-          <span>Filtering by "{searchQuery}"</span>
+          <span>Filter: "{searchQuery}"</span>
         )}
       </div>
 
       {/* Grid Display */}
       {filteredMemories.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredMemories.map(memory => (
             <MemoryCard
               key={memory.id}
@@ -114,9 +114,9 @@ export const MemoryGrid: React.FC<MemoryGridProps> = ({
       ) : (
         <EmptyState
           icon={Sparkles}
-          title="No memories found"
-          description="Try clearing your filters, or save your first memory together."
-          actionLabel="Create a Memory"
+          title="Belum ada kenangan"
+          description="Coba bersihkan filter pencarian, atau abadikan kenangan pertama kalian."
+          actionLabel="Buat Kenangan"
           onAction={onOpenAddMemory}
         />
       )}

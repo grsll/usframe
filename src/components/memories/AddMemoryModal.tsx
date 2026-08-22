@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from '../layout/Modal';
 import { Input, Textarea } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { Memory, MemoryCategory } from '../../types';
+import { Memory } from '../../types';
 import { Upload, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -25,11 +25,11 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
   const [caption, setCaption] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [location, setLocation] = useState('');
-  const [category, setCategory] = useState<MemoryCategory>('Date');
+  const [category, setCategory] = useState<string>('Kencan');
   const [mediaUrl, setMediaUrl] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
 
-  const categories: MemoryCategory[] = ['Date', 'Travel', 'Everyday', 'Milestone', 'Photobooth'];
+  const categories = ['Kencan', 'Perjalanan', 'Sehari-hari', 'Momen Spesial', 'Photobooth'];
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -63,7 +63,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
     };
 
     onAddMemory(newMem);
-    success('Memory saved to your couple vault! 🤍');
+    success('Kenangan berhasil disimpan ke brankas pasangan! 🤍');
     onClose();
 
     // Reset Form
@@ -78,16 +78,16 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Add New Memory"
-      subtitle="Save a quiet photo and reflection into your shared vault."
+      title="Tambah Kenangan Baru"
+      subtitle="Simpan foto dan cerita manis ke dalam brankas berdua."
       maxWidth="xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
         
         {/* Photo Upload / Preview */}
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-            Memory Photo
+            Foto Kenangan
           </label>
 
           {mediaUrl ? (
@@ -98,14 +98,14 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
                 onClick={() => setMediaUrl('')}
                 className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/70 text-white text-xs font-medium backdrop-blur-md hover:bg-black cursor-pointer"
               >
-                Change Photo
+                Ganti Foto
               </button>
             </div>
           ) : (
-            <label className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border hover:border-terracotta-400 rounded-2xl bg-surface-subtle/50 cursor-pointer transition-colors">
-              <Upload className="w-8 h-8 text-terracotta-500 mb-2" />
-              <span className="text-sm font-semibold text-foreground">Upload photo from device</span>
-              <span className="text-xs text-foreground-muted mt-0.5">JPG, PNG, WebP supported</span>
+            <label className="flex flex-col items-center justify-center p-6 sm:p-8 border-2 border-dashed border-border hover:border-terracotta-400 rounded-2xl bg-surface-subtle/50 cursor-pointer transition-colors">
+              <Upload className="w-7 h-7 text-terracotta-500 mb-1.5" />
+              <span className="text-xs sm:text-sm font-semibold text-foreground">Unggah foto dari perangkat</span>
+              <span className="text-[11px] text-foreground-muted mt-0.5">JPG, PNG, WebP didukung</span>
               <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
             </label>
           )}
@@ -113,7 +113,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
           {!mediaUrl && (
             <div className="pt-1">
               <Input
-                placeholder="Or paste an image URL directly..."
+                placeholder="Atau tempel URL gambar langsung..."
                 value={mediaUrl}
                 onChange={(e) => setMediaUrl(e.target.value)}
               />
@@ -122,24 +122,24 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
         </div>
 
         <Input
-          label="Memory Title"
-          placeholder="e.g. Sunset Picnic, 2 AM Ramen Talk"
+          label="Judul Kenangan"
+          placeholder="contoh: Piknik Senja, Obrolan Ramen Jam 2 Pagi"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
         />
 
         <Textarea
-          label="Heartfelt Note / Caption"
-          placeholder="What do you want to remember about this day?"
+          label="Catatan / Cerita Berkesan"
+          placeholder="Apa yang paling ingin kamu ingat dari hari ini?"
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           required
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <Input
-            label="Date"
+            label="Tanggal"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -147,8 +147,8 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
           />
 
           <Input
-            label="Location (Optional)"
-            placeholder="e.g. Paris, Tokyo, Shinjuku"
+            label="Lokasi (Opsional)"
+            placeholder="contoh: Paris, Tokyo, Shibuya"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
           />
@@ -157,9 +157,9 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
         {/* Category Selector */}
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-            Category
+            Kategori
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5 sm:gap-2">
             {categories.map(cat => (
               <button
                 type="button"
@@ -178,7 +178,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
         </div>
 
         {/* Mark Favorite Toggle */}
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-2 pt-1">
           <button
             type="button"
             onClick={() => setIsFavorite(!isFavorite)}
@@ -189,16 +189,16 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
             }`}
           >
             <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-            <span>{isFavorite ? 'Marked as Favorite 🤍' : 'Mark as Favorite'}</span>
+            <span>{isFavorite ? 'Ditandai sebagai Favorit 🤍' : 'Tandai sebagai Favorit'}</span>
           </button>
         </div>
 
-        <div className="pt-4 border-t border-border flex justify-end gap-2">
+        <div className="pt-3 border-t border-border flex flex-col sm:flex-row justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            Batal
           </Button>
           <Button type="submit" variant="primary" disabled={!title || !mediaUrl}>
-            Save Memory
+            Simpan Kenangan
           </Button>
         </div>
 

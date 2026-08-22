@@ -23,14 +23,14 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
     navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     confetti({ particleCount: 25, spread: 40 });
-    success('Invitation link copied to clipboard! 🤍');
+    success('Tautan undangan berhasil disalin ke papan klip! 🤍');
     setTimeout(() => setCopied(false), 2500);
   };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(inviteCode);
     setCopied(true);
-    success(`Code "${inviteCode}" copied!`);
+    success(`Kode "${inviteCode}" berhasil disalin!`);
     setTimeout(() => setCopied(false), 2500);
   };
 
@@ -38,27 +38,27 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Invite Your Partner"
-      subtitle="Share your private digital space with your other half."
+      title="Undang Pasanganmu"
+      subtitle="Bagikan ruang digital privat ini kepada belahan jiwamu."
       maxWidth="md"
     >
-      <div className="space-y-6 text-center">
+      <div className="space-y-4 sm:space-y-6 text-center">
         
         {/* Code Visual Card */}
-        <div className="p-6 rounded-3xl bg-terracotta-50/60 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-800 space-y-2">
-          <span className="text-xs font-bold uppercase tracking-widest text-terracotta-800 dark:text-terracotta-200 block">
-            Your Private Couple Code
+        <div className="p-5 sm:p-6 rounded-3xl bg-terracotta-50/60 dark:bg-terracotta-950/40 border border-terracotta-200 dark:border-terracotta-800 space-y-1.5 sm:space-y-2">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-terracotta-800 dark:text-terracotta-200 block">
+            Kode Ruangan Privat Kalian
           </span>
-          <div className="font-mono text-4xl sm:text-5xl font-bold tracking-wider text-terracotta-600 dark:text-terracotta-400 select-all">
+          <div className="font-mono text-3xl sm:text-5xl font-bold tracking-wider text-terracotta-600 dark:text-terracotta-400 select-all">
             {inviteCode}
           </div>
           <p className="text-xs text-foreground-muted max-w-xs mx-auto">
-            Your partner can enter this 6-letter code or click the direct invitation link below to pair instantly.
+            Pasanganmu dapat memasukkan 6 karakter kode ini atau membuka tautan langsung untuk terhubung secara instan.
           </p>
         </div>
 
         {/* Share Buttons */}
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <Button
             onClick={handleCopyLink}
             variant="primary"
@@ -66,7 +66,7 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
             className="w-full font-medium shadow-sm"
           >
             {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-            <span>{copied ? 'Link Copied!' : 'Copy Invitation Link'}</span>
+            <span>{copied ? 'Tautan Tersalin!' : 'Salin Tautan Undangan'}</span>
           </Button>
 
           <Button
@@ -75,12 +75,12 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
             size="md"
             className="w-full"
           >
-            <span>Copy Code Only ({inviteCode})</span>
+            <span>Salin Kode Saja ({inviteCode})</span>
           </Button>
         </div>
 
-        <p className="text-xs text-foreground-subtle">
-          This couple space is encrypted and completely isolated to the two of you.
+        <p className="text-[11px] text-foreground-subtle">
+          Ruang pasangan ini terenkripsi dan terisolasi khusus untuk kalian berdua.
         </p>
 
       </div>

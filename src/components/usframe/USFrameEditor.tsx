@@ -22,9 +22,9 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
 }) => {
   const [customization, setCustomization] = useState<USFrameCustomization>({
     templateId: 'minimal',
-    customText: 'US — A Little Place for Two',
+    customText: 'US — Ruang Kecil Berdua',
     showDate: true,
-    customDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    customDate: new Date().toLocaleDateString('id-ID', { month: 'short', day: 'numeric', year: 'numeric' }),
     frameColor: '#FAF8F5',
     filter: 'natural',
     stamp: 'us_logo',
@@ -95,9 +95,9 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
           <div className="relative p-2.5 sm:p-3 bg-stone-200/50 dark:bg-stone-800/50 rounded-3xl backdrop-blur-md shadow-elevated border border-border w-full">
             {isRendering && (
               <div className="absolute inset-0 z-20 bg-background/60 backdrop-blur-xs flex items-center justify-center rounded-3xl">
-                <span className="text-xs font-medium text-foreground flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface shadow-md border border-border">
+                <span className="text-xs font-medium text-foreground flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-surface shadow-md border border-border">
                   <Sparkles className="w-3.5 h-3.5 text-terracotta-500 animate-spin" />
-                  Generating Strip...
+                  Merender Strip...
                 </span>
               </div>
             )}
@@ -105,18 +105,18 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
             {previewDataUrl ? (
               <img
                 src={previewDataUrl}
-                alt="USFRAME Photobooth Strip"
+                alt="Strip Photobooth USFRAME"
                 className="w-full h-auto rounded-2xl shadow-photostrip transition-all duration-300 select-none border border-stone-200 dark:border-stone-800"
               />
             ) : (
               <div className="h-[360px] sm:h-[480px] flex items-center justify-center text-foreground-muted text-xs">
-                Rendering photostrip...
+                Merender strip foto...
               </div>
             )}
           </div>
 
           <p className="text-[11px] text-foreground-subtle text-center mt-2.5">
-            High-resolution 300DPI export ready
+            Ekspor kualitas tinggi resolusi 300DPI siap diunduh
           </p>
 
         </div>
@@ -128,10 +128,10 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
         <div className="flex items-center justify-between border-b border-border pb-4">
           <div>
             <h3 className="font-serif text-xl sm:text-2xl font-semibold text-foreground tracking-tight">
-              Customize Your USFRAME
+              Kustomisasi USFRAME Kamu
             </h3>
             <p className="text-xs sm:text-sm text-foreground-muted mt-0.5">
-              Personalize typography, frame theme, and intimate stamps.
+              Personalisasi tipografi, tema bingkai, dan cap romantis berdua.
             </p>
           </div>
 
@@ -140,7 +140,7 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
             className="text-xs font-medium text-foreground-muted hover:text-foreground flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-border hover:bg-surface-subtle transition-colors cursor-pointer shrink-0"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Retake</span>
+            <span>Foto Ulang</span>
           </button>
         </div>
 
@@ -161,7 +161,7 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
         <div className="space-y-2">
           <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5 text-terracotta-500" />
-            <span>Color Filter</span>
+            <span>Filter Warna</span>
           </label>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
             {PHOTO_FILTERS.map(f => (
@@ -183,15 +183,15 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
         {/* 3. Text & Caption */}
         <div className="space-y-3.5 sm:space-y-4">
           <Input
-            label="Strip Caption / Title"
-            placeholder="e.g. Rainy Afternoon in Paris, Us in Shibuya"
+            label="Teks / Judul Pada Strip"
+            placeholder="contoh: Sore Hujan di Paris, Kita di Shibuya"
             value={customization.customText}
             onChange={(e) => setCustomization(prev => ({ ...prev, customText: e.target.value }))}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Input
-              label="Date Display"
+              label="Tampilan Tanggal"
               value={customization.customDate}
               onChange={(e) => setCustomization(prev => ({ ...prev, customDate: e.target.value }))}
             />
@@ -199,7 +199,7 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted flex items-center gap-1.5">
                 <Type className="w-3.5 h-3.5 text-terracotta-500" />
-                <span>Font Style</span>
+                <span>Gaya Font</span>
               </label>
               <select
                 value={customization.fontStyle}
@@ -207,7 +207,7 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
                 className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-border text-foreground text-sm focus:outline-none focus:border-terracotta-500"
               >
                 <option value="serif">Editorial Serif (Playfair)</option>
-                <option value="script">Handwritten Script (Caveat)</option>
+                <option value="script">Tulisan Tangan (Caveat)</option>
                 <option value="sans">Modern Sans (Plus Jakarta)</option>
                 <option value="mono">Analog Monospace (Film)</option>
               </select>
@@ -219,7 +219,7 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
         <div className="space-y-2">
           <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted flex items-center gap-1.5">
             <Stamp className="w-3.5 h-3.5 text-terracotta-500" />
-            <span>Couple Stamp</span>
+            <span>Cap Khusus Pasangan</span>
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
             {PHOTO_STAMPS.map(st => (
@@ -248,7 +248,7 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
             className="w-full sm:flex-1 py-3 sm:py-3.5 font-medium shadow-sm active:scale-95"
           >
             <Save className="w-4 h-4 mr-2" />
-            <span>{isSaved ? 'Saved to Memories! 🤍' : 'Add to Shared Memories'}</span>
+            <span>{isSaved ? 'Tersimpan di Kenangan! 🤍' : 'Simpan ke Kenangan Bersama'}</span>
           </Button>
 
           <Button
@@ -258,7 +258,7 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
             className="w-full sm:w-auto py-3 sm:py-3.5 active:scale-95"
           >
             <Download className="w-4 h-4 mr-2" />
-            <span>Download PNG</span>
+            <span>Unduh PNG</span>
           </Button>
         </div>
 

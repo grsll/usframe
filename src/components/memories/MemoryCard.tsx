@@ -46,20 +46,20 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
         {/* Favorite Heart Button */}
         <button
           onClick={(e) => onToggleFavorite(e, memory.id)}
-          className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-all cursor-pointer ${
+          className={`p-2 rounded-full backdrop-blur-md transition-all cursor-pointer absolute top-3 right-3 ${
             memory.is_favorite
               ? 'bg-rose-500 text-white shadow-md'
               : 'bg-black/40 text-white/80 hover:text-white hover:bg-black/60'
           }`}
-          aria-label="Toggle favorite"
+          aria-label="Tandai favorit"
         >
           <Heart className={`w-4 h-4 ${memory.is_favorite ? 'fill-current' : ''}`} />
         </button>
       </div>
 
       {/* Content */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-        <div className="space-y-1.5">
+      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-2.5">
+        <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-foreground-muted">
             <span>{formatDatePretty(memory.date)}</span>
             {memory.location && (
@@ -73,19 +73,19 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
             )}
           </div>
 
-          <h3 className="font-serif text-lg font-semibold text-foreground leading-snug group-hover:text-terracotta-600 transition-colors">
+          <h3 className="font-serif text-base sm:text-lg font-semibold text-foreground leading-snug group-hover:text-terracotta-600 transition-colors">
             {memory.title}
           </h3>
 
-          <p className="text-xs sm:text-sm text-foreground-muted line-clamp-2 leading-relaxed">
+          <p className="text-xs text-foreground-muted line-clamp-2 leading-relaxed">
             {memory.caption}
           </p>
         </div>
 
         <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-foreground-subtle">
-          <span>By {memory.creator_name || 'Us'}</span>
+          <span>Oleh {memory.creator_name || 'Kita'}</span>
           <span className="font-semibold text-terracotta-600 dark:text-terracotta-400 group-hover:translate-x-0.5 transition-transform">
-            View Details →
+            Lihat Detail →
           </span>
         </div>
       </div>

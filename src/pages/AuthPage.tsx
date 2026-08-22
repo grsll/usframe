@@ -24,13 +24,13 @@ export const AuthPage: React.FC = () => {
     try {
       if (mode === 'register') {
         await register(name, email, password);
-        success('Account created! Welcome to US 🤍');
+        success('Akun berhasil dibuat! Selamat datang di US 🤍');
       } else {
         await login(email, password);
-        success('Welcome back to your couple space 🤍');
+        success('Selamat datang kembali di ruang kalian 🤍');
       }
     } catch (err: any) {
-      error(err.message || 'Authentication error. Please try again.');
+      error(err.message || 'Gagal masuk. Silakan coba kembali.');
     } finally {
       setIsLoading(false);
     }
@@ -39,7 +39,7 @@ export const AuthPage: React.FC = () => {
   const handleDemoAccess = async () => {
     setIsLoading(true);
     await login('kai@uscouple.app', 'demo1234');
-    success('Logged in with Kai & Elena demo couple! ✨');
+    success('Berhasil masuk dengan akun demo Kai & Elena! ✨');
     setIsLoading(false);
   };
 
@@ -52,7 +52,7 @@ export const AuthPage: React.FC = () => {
         className="absolute top-6 left-6 text-xs text-foreground-muted hover:text-foreground flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border shadow-xs transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back</span>
+        <span>Kembali</span>
       </button>
 
       <div className="w-full max-w-md bg-surface border border-border rounded-3xl p-7 sm:p-9 shadow-elevated space-y-6">
@@ -63,10 +63,10 @@ export const AuthPage: React.FC = () => {
             US
           </div>
           <h2 className="font-serif text-2xl sm:text-3xl font-medium text-foreground tracking-tight">
-            {mode === 'register' ? 'Create Your Couple Account' : 'Welcome Back'}
+            {mode === 'register' ? 'Buat Akun Ruang Berdua' : 'Selamat Datang Kembali'}
           </h2>
           <p className="text-xs sm:text-sm text-foreground-muted">
-            {mode === 'register' ? 'Start your private digital room for two.' : 'Enter your credentials to enter your space.'}
+            {mode === 'register' ? 'Mulai ruang digital privat khusus kalian berdua.' : 'Masukkan data akun untuk masuk ke ruang kalian.'}
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export const AuthPage: React.FC = () => {
                 : 'text-foreground-muted hover:text-foreground'
             }`}
           >
-            Create Account
+            Daftar Akun
           </button>
           <button
             type="button"
@@ -92,7 +92,7 @@ export const AuthPage: React.FC = () => {
                 : 'text-foreground-muted hover:text-foreground'
             }`}
           >
-            Sign In
+            Masuk
           </button>
         </div>
 
@@ -100,8 +100,8 @@ export const AuthPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' && (
             <Input
-              label="Your Name"
-              placeholder="e.g. Kai, Elena, Alex"
+              label="Nama Panggilan Kamu"
+              placeholder="contoh: Kai, Elena, Rian, Maya"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -109,16 +109,16 @@ export const AuthPage: React.FC = () => {
           )}
 
           <Input
-            label="Email Address"
+            label="Alamat Email"
             type="email"
-            placeholder="you@example.com"
+            placeholder="kamu@contoh.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
 
           <Input
-            label="Password"
+            label="Kata Sandi"
             type="password"
             placeholder="••••••••"
             value={password}
@@ -133,7 +133,7 @@ export const AuthPage: React.FC = () => {
             isLoading={isLoading}
             className="w-full font-medium shadow-sm mt-2"
           >
-            {mode === 'register' ? 'Continue to Couple Setup →' : 'Enter Couple Space →'}
+            {mode === 'register' ? 'Lanjut ke Pengaturan Pasangan →' : 'Masuk ke Ruang Berdua →'}
           </Button>
         </form>
 
@@ -145,11 +145,11 @@ export const AuthPage: React.FC = () => {
             className="w-full py-2.5 px-4 rounded-xl bg-terracotta-50 dark:bg-terracotta-950/80 border border-terracotta-200 dark:border-terracotta-800 text-terracotta-700 dark:text-terracotta-300 text-xs font-medium hover:bg-terracotta-100 flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-terracotta-500" />
-            <span>Instant Demo Experience (Kai × Elena)</span>
+            <span>Akses Demo Langsung (Kai × Elena)</span>
           </button>
 
           <p className="text-xs text-foreground-subtle">
-            All couple data is isolated to your private pair.
+            Semua data pasangan terlindungi dan privat khusus berdua.
           </p>
         </div>
 

@@ -11,29 +11,29 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onOpenAddMemory }) =
 
   const actions = [
     {
-      label: 'USFRAME',
-      sublabel: '4-photo strip booth',
+      label: 'USFRAME Booth',
+      sublabel: 'Ambil strip 4 foto',
       icon: Camera,
       onClick: () => setCurrentView('usframe'),
       primary: true
     },
     {
-      label: 'Add Memory',
-      sublabel: 'Save photo & note',
+      label: 'Tambah Kenangan',
+      sublabel: 'Simpan foto & catatan',
       icon: PlusCircle,
       onClick: onOpenAddMemory,
       primary: false
     },
     {
-      label: 'Together',
-      sublabel: 'Daily prompts & notes',
+      label: 'Aktivitas Bersama',
+      sublabel: 'Pertanyaan harian & surat',
       icon: MessageCircleHeart,
       onClick: () => setCurrentView('together'),
       primary: false
     },
     {
-      label: 'Timeline',
-      sublabel: 'Relationship story',
+      label: 'Lini Masa Kita',
+      sublabel: 'Perjalanan cinta kita',
       icon: GitCommit,
       onClick: () => setCurrentView('timeline'),
       primary: false
