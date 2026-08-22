@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Little World - Virtual Home</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="house-container">
+        <!-- Header -->
+        <div class="house-header">
+            <div class="home-title">
+                <span>🏠</span> Our Little World
+            </div>
+            <div>
+                <button id="logoutBtn" class="outline" style="padding: 0.4rem 1rem; font-size: 0.85rem; width: auto;">Logout</button>
+            </div>
+        </div>
+
+        <!-- Couple Presence & Heart Bar -->
+        <div class="couple-status-bar">
+            <div class="user-card">
+                <div class="avatar" id="myAvatar">🐱</div>
+                <div class="user-info">
+                    <h4 id="myName">Loading...</h4>
+                    <span id="myMood">Mood: 😊 Bahagia</span>
+                </div>
+            </div>
+
+            <div class="heart-center">
+                <div class="heart-pulse">❤️</div>
+                <div class="days-together" id="daysTogetherText">Day 1 Together</div>
+            </div>
+
+            <div class="user-card right">
+                <div class="user-info" style="text-align: right;">
+                    <h4 id="partnerName">Pasangan</h4>
+                    <span id="partnerMood">Mood: 🥰 Kangen</span>
+                </div>
+                <div class="avatar" id="partnerAvatar">🐰</div>
+            </div>
+        </div>
+
+        <!-- LDR Journey Tracker -->
+        <div class="ldr-tracker-bar">
+            <div class="ldr-stat-item">
+                <span>🌱 Level Taman:</span> <b id="gardenLevelText">Lv. 1 Sprout</b>
+            </div>
+            <div class="ldr-stat-item">
+                <span>🐣 Pet:</span> <b id="petNameText">Mochi (80% Happy)</b>
+            </div>
+            <div class="ldr-stat-item">
+                <span>⏳ Next Meet:</span> <b id="nextMeetText">Atur Tanggal</b>
+            </div>
+        </div>
+
+        <!-- Emergency / Presence Banner -->
+        <div class="emergency-banner">
+            <div>
+                <strong>Sedang butuh pasangan sekarang?</strong>
+                <p style="font-size: 0.8rem; color: #881337; margin-top:2px;">Kirim sinyal lembut ke layar pasanganmu.</p>
+            </div>
+            <button class="btn-need-you" id="btnNeedYou">🫂 I NEED YOU</button>
+        </div>
+
+        <!-- Interactive Virtual Rooms Grid -->
+        <div class="room-grid">
+            <!-- 1. Living Room -->
+            <div class="room-card" onclick="openRoom('living')">
+                <span class="room-badge badge-live">Live Presence</span>
+                <div class="room-icon-wrapper">🛋️</div>
+                <div>
+                    <h3>Living Room</h3>
+                    <p>Tempat ngobrol, chat santai, voice call, dan nongkrong bareng di sofa.</p>
+                </div>
+            </div>
+
+            <!-- 2. Heart Room -->
+            <div class="room-card" onclick="openRoom('heart')">
+                <span class="room-badge badge-cozy">Ruang Perasaan</span>
+                <div class="room-icon-wrapper">💌</div>
+                <div>
+                    <h3>Heart Room</h3>
+                    <p>Unek-unek, mood harian, hal yang bikin sedih/kangen, dan "I Need to Talk".</p>
+                </div>
+            </div>
+
+            <!-- 3. Peace Room -->
+            <div class="room-card" onclick="openRoom('peace')">
+                <span class="room-badge badge-peace">Mediator & Solusi</span>
+                <div class="room-icon-wrapper">🤝</div>
+                <div>
+                    <h3>Peace Room</h3>
+                    <p>Conflict room, tombol cool down (30m), AI mediator & kesepakatan hubungan.</p>
+                </div>
+            </div>
+
+            <!-- 4. Memory Room & Photobooth -->
+            <div class="room-card" onclick="openRoom('memory')">
+                <span class="room-badge badge-cozy">Kenangan</span>
+                <div class="room-icon-wrapper">📸</div>
+                <div>
+                    <h3>Memory Room</h3>
+                    <p>Photobooth polaroid, voice note jar, foto kencan & milestone perjalanan.</p>
+                </div>
+            </div>
+
+            <!-- 5. Game Room -->
+            <div class="room-card" onclick="openRoom('game')">
+                <span class="room-badge badge-live">Fun & XP</span>
+                <div class="room-icon-wrapper">🎮</div>
+                <div>
+                    <h3>Game Room</h3>
+                    <p>TicTacToe, Couple Quiz (seberapa kenal pasangan), Truth or Dare & Mini battle.</p>
+                </div>
+            </div>
+
+            <!-- 6. Garden & Pet -->
+            <div class="room-card" onclick="openRoom('garden')">
+                <span class="room-badge badge-garden">Tumbuh Bersama</span>
+                <div class="room-icon-wrapper">🌱</div>
+                <div>
+                    <h3>Garden & Pet</h3>
+                    <p>Rawat hewan peliharaan bersama & siram tanaman dari aktivitas hubungan kalian.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-muted);">
+            <div>Room Code: <strong id="currentInviteCode">------</strong></div>
+            <button id="leaveRoomBtn" class="danger" style="width: auto; padding: 0.35rem 0.8rem; font-size: 0.75rem;">Putuskan Hubungan</button>
+        </div>
+    </div>
+
+    <!-- Generic Modal for Room Features -->
+    <div class="modal-overlay" id="roomModal">
+        <div class="modal-content">
+            <h2 id="modalTitle" style="margin-bottom: 0.5rem; color: #db2777;">Modal Title</h2>
+            <div id="modalBody">
+                <!-- Dynamic Content injected by JS -->
+            </div>
+            <div style="margin-top: 1.5rem; display: flex; gap: 0.5rem;">
+                <button class="outline" onclick="closeModal()">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="../js/ui/connected.js"></script>
+</body>
+</html>

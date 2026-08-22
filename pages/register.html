@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - UsFrame</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Daftar UsFrame</h1>
+        
+        <form id="registerForm" class="mt-4">
+            <div class="form-group">
+                <label for="name">Nama Panggilan</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required minlength="6">
+            </div>
+            <button type="submit">Register</button>
+            <div id="errorMsg" class="error"></div>
+        </form>
+        
+        <p class="text-center mt-4">Sudah punya akun? <a href="login.html">Login</a></p>
+    </div>
+    <script type="module" src="../js/ui/register.js"></script>
+</body>
+</html>

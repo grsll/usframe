@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Room - UsFrame</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="container text-center">
+        <h2>Gabung Ruangan</h2>
+        <p>Masukkan kode rahasia dari pasanganmu.</p>
+        
+        <form id="joinForm" class="mt-4">
+            <div class="form-group">
+                <input type="text" id="code" placeholder="Misal: KITA7X" style="text-align:center; font-size:1.5rem; letter-spacing: 4px; text-transform:uppercase" maxlength="6" required>
+            </div>
+            <button type="submit">Gabung Sekarang</button>
+            <div id="errorMsg" class="error"></div>
+        </form>
+        
+        <p class="mt-4"><a href="create-room.html">Kembali</a></p>
+    </div>
+    <script type="module" src="../js/ui/joinRoom.js"></script>
+</body>
+</html>

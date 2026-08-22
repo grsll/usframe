@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--bg-main);
+  --color-surface: var(--bg-surface);
+  --color-surface-elevated: var(--bg-surface-elevated);
+  --color-surface-subtle: var(--bg-surface-subtle);
+
+  --color-border: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  --color-foreground: var(--text-main);
+  --color-foreground-muted: var(--text-muted);
+  --color-foreground-subtle: var(--text-subtle);
+
+  --color-primary: var(--primary-main);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-terracotta-50: #FDF6F3;
+  --color-terracotta-100: #FCEBE4;
+  --color-terracotta-200: #F8D4C5;
+  --color-terracotta-300: #F2B59E;
+  --color-terracotta-400: #E88B6E;
+  --color-terracotta-500: #D95D39;
+  --color-terracotta-600: #C24726;
+  --color-terracotta-700: #9E3418;
+  --color-terracotta-800: #7E2A14;
+  --color-terracotta-900: #672412;
+  --color-terracotta-950: #381107;
+
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-script: "Caveat", cursive;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  :root {
+    --bg-main: #FAF8F5;
+    --bg-surface: #FFFFFF;
+    --bg-surface-elevated: #FFFFFF;
+    --bg-surface-subtle: #F5F2EB;
+    
+    --border-subtle: #EDE8E1;
+    --border-strong: #DCD4C7;
+    
+    /* Elegant, warm, readable text */
+    --text-main: #1C1917;
+    --text-muted: #44403C;
+    --text-subtle: #57534E;
+    
+    --primary-main: #D95D39;
+    --primary-hover: #C24726;
+    --primary-soft: #FDF2EE;
+    --primary-foreground: #FFFFFF;
+  }
+
+  .dark {
+    --bg-main: #121110;
+    --bg-surface: #1C1A17;
+    --bg-surface-elevated: #24221E;
+    --bg-surface-subtle: #181614;
+    
+    --border-subtle: #2D2925;
+    --border-strong: #443F3A;
+    
+    --text-main: #FAF8F5;
+    --text-muted: #D6D3D1;
+    --text-subtle: #A8A29E;
+    
+    --primary-main: #E06D53;
+    --primary-hover: #F2856D;
+    --primary-soft: #2D1A14;
+    --primary-foreground: #FFFFFF;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--primary-main);
+    outline-offset: 2px;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #DCD4C7;
+  border-radius: 9999px;
+}
+
+/* Film Grain Texture */
+.grain-overlay {
+  position: relative;
+}
+.grain-overlay::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Photostrip tactile drop shadow */
+.shadow-photostrip {
+  box-shadow: 0 16px 32px -4px rgba(0, 0, 0, 0.15), 0 4px 12px -2px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes cameraFlash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-camera-flash {
+  animation: cameraFlash 0.4s ease-out forwards;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

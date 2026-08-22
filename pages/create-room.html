@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room - UsFrame</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="container text-center">
+        <h2>Mulai Memori Kalian</h2>
+        <p>Buat ruangan baru untuk membagikan kode, atau gabung jika pasanganmu sudah membuat ruangan.</p>
+        
+        <div class="mt-4">
+            <button id="createBtn">Buat Ruangan Baru</button>
+            <div style="margin: 1.5rem 0; color: var(--text-muted)">- atau -</div>
+            <a href="join-room.html"><button class="outline" type="button">Gabung ke Ruangan</button></a>
+        </div>
+        <div id="errorMsg" class="error"></div>
+        
+        <p class="mt-4"><a href="#" id="logoutBtn">Logout</a></p>
+    </div>
+    <script type="module" src="../js/ui/createRoom.js"></script>
+</body>
+</html>
