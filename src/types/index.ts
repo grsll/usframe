@@ -2,6 +2,7 @@ export type UserProfile = {
   id: string;
   name: string;
   email: string;
+  password?: string;
   avatar: string;
   couple_id?: string | null;
   current_mood?: string;

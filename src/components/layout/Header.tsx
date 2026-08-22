@@ -2,15 +2,19 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
-import { Sun, Moon, Laptop, Heart, Globe } from 'lucide-react';
+import { Sun, Moon, Laptop, Heart, Globe, UserPlus } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { playSuccessChime } from '../../lib/utils';
+import { playSuccessChime, generateInitialsAvatar } from '../../lib/utils';
 
 export const Header: React.FC = () => {
   const { user, partner, couple, sendHeartPulse, setCurrentView } = useAuth();
   const { theme, setTheme } = useTheme();
   const { success } = useToast();
   const [pulseSending, setPulseSending] = useState(false);
+
+  const isPending = !partner || couple?.status === 'pending';
+  const userAvatar = user?.avatar || generateInitialsAvatar(user?.name || 'Kamu');
+  const partnerAvatar = partner?.avatar || (partner?.name ? generateInitialsAvatar(partner.name) : '');
 
   const handlePulse = () => {
     setPulseSending(true);
@@ -24,7 +28,7 @@ export const Header: React.FC = () => {
       colors: ['#D95D39', '#F472B6', '#FDA4AF']
     });
 
-    success(`Sinyal rindu terkirim ke ${partner?.name || 'pasanganmu'} 🤍`);
+    success(isPending ? 'Sinyal rindu tersimpan 🤍' : `Sinyal rindu terkirim ke ${partner?.name || 'pasanganmu'} 🤍`);
     setTimeout(() => setPulseSending(false), 2000);
   };
 
@@ -49,23 +53,22 @@ export const Header: React.FC = () => {
             </div>
             <div className="hidden xs:block truncate">
               <span className="font-serif font-semibold text-foreground text-sm sm:text-base tracking-tight block truncate">
-                {couple?.couple_name || 'US'}
+                {couple?.couple_name || (user?.name ? `Ruang ${user.name}` : 'US')}
               </span>
               <span className="text-[10px] sm:text-[11px] text-foreground-subtle flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Dua Terhubung
+                <span className={`w-1.5 h-1.5 rounded-full ${isPending ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`}></span>
+                {isPending ? 'Menunggu Pasangan' : 'Dua Terhubung'}
               </span>
             </div>
           </button>
 
           {/* City distance badge */}
-          {couple && (
+          {couple && !isPending && (
             <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-subtle border border-border text-[11px] text-foreground-muted">
               <Globe className="w-3.5 h-3.5 text-terracotta-500" />
-              <span>{couple.user_city || 'Tokyo'}</span>
+              <span>{couple.user_city || 'Jakarta'}</span>
               <span className="text-foreground-subtle">⇄</span>
-              <span>{couple.partner_city || 'Paris'}</span>
-              <span className="text-foreground-subtle">({couple.distance_km?.toLocaleString('id-ID') || '9.710'} km)</span>
+              <span>{couple.partner_city || 'Kota Pasangan'}</span>
             </div>
           )}
         </div>
@@ -112,18 +115,24 @@ export const Header: React.FC = () => {
           >
             <div className="flex -space-x-1.5 sm:-space-x-2">
               <img
-                src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
+                src={userAvatar}
                 alt={user?.name || 'Kamu'}
-                className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-background ring-1 ring-border"
+                className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-background ring-1 ring-border bg-surface"
               />
-              <img
-                src={partner?.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100'}
-                alt={partner?.name || 'Pasangan'}
-                className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-background ring-1 ring-border"
-              />
+              {isPending ? (
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 border-dashed border-terracotta-400 bg-terracotta-50 dark:bg-terracotta-950 flex items-center justify-center text-terracotta-600 text-[10px]">
+                  <UserPlus className="w-3 h-3" />
+                </div>
+              ) : (
+                <img
+                  src={partnerAvatar}
+                  alt={partner?.name || 'Pasangan'}
+                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full object-cover border-2 border-background ring-1 ring-border bg-surface"
+                />
+              )}
             </div>
             <span className="text-xs font-medium text-foreground hidden sm:inline">
-              {user?.name || 'Kamu'} & {partner?.name || 'Elena'}
+              {user?.name || 'Kamu'} {isPending ? '(Menunggu Pasangan)' : `& ${partner?.name}`}
             </span>
           </button>
         </div>
@@ -132,3 +141,4 @@ export const Header: React.FC = () => {
     </header>
   );
 };
+

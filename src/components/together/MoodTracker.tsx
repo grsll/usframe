@@ -76,13 +76,17 @@ export const MoodTracker: React.FC = () => {
       {/* Current Couple Presence Bar */}
       <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-subtle border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 text-xs">
         <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className={`w-2.5 h-2.5 rounded-full ${partner ? 'bg-emerald-500' : 'bg-amber-500'} animate-pulse shrink-0`} />
           <span className="text-foreground truncate">
-            <strong>{partner?.name || 'Elena'}</strong>: {partner?.current_mood} {partner?.mood_label || 'Missing you'}
+            {partner ? (
+              <><strong>{partner.name}</strong>: {partner.current_mood || '✨'} {partner.mood_label || 'Aktif'}</>
+            ) : (
+              <span className="text-foreground-muted">Status: Menunggu pasangan bergabung</span>
+            )}
           </span>
         </div>
         <span className="text-foreground-subtle">
-          Location: {partner?.location_name || 'Paris, France'}
+          {partner ? `Lokasi: ${partner.location_name || 'Indonesia'}` : 'Bagikan kode ruanganmu'}
         </span>
       </div>
 

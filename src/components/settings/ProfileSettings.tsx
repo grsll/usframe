@@ -1,123 +1,220 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { User } from 'lucide-react';
+import { User, Upload, X, UserPlus, Unlink } from 'lucide-react';
+import { compressImage, generateInitialsAvatar } from '../../lib/utils';
+import { CoupleShareModal } from './CoupleShareModal';
 
 export const ProfileSettings: React.FC = () => {
-  const { user, partner, couple, updateUser, updateCoupleSettings } = useAuth();
-  const { success } = useToast();
+  const { user, partner, couple, updateUser, updateCoupleSettings, leaveCoupleRoom } = useAuth();
+  const { success, error } = useToast();
 
   const [name, setName] = useState(user?.name || '');
-  const [userCity, setUserCity] = useState(couple?.user_city || 'Tokyo');
-  const [partnerCity, setPartnerCity] = useState(couple?.partner_city || 'Paris');
-  const [startDate, setStartDate] = useState(couple?.relationship_start_date || '2025-06-10');
+  const [userCity, setUserCity] = useState(couple?.user_city || 'Jakarta');
+  const [startDate, setStartDate] = useState(couple?.relationship_start_date || new Date().toISOString().split('T')[0]);
   const [avatar, setAvatar] = useState(user?.avatar || '');
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const avatarPresets = [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80',
-    'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=300&auto=format&fit=crop&q=80'
-  ];
+  const isPending = !partner || couple?.status === 'pending';
+  const previewAvatar = avatar || generateInitialsAvatar(name || user?.name || 'Kamu');
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressed = await compressImage(file, 400, 0.85);
+      setAvatar(compressed);
+      success('Foto profil berhasil dimuat! Klik Simpan untuk memperbarui.');
+    } catch (err) {
+      error('Gagal memproses file foto. Coba gambar lain.');
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    const defaultInitial = generateInitialsAvatar(name || user?.name || 'Kamu');
+    setAvatar(defaultInitial);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    success('Foto profil dihapus (menggunakan inisial nama).');
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     updateUser({ name, avatar });
-    updateCoupleSettings({
-      user_city: userCity,
-      partner_city: partnerCity,
-      relationship_start_date: startDate
-    });
-    success('Pengaturan profil dan pasangan berhasil diperbarui! ✨');
+    if (couple) {
+      updateCoupleSettings({
+        user_city: userCity,
+        relationship_start_date: startDate
+      });
+    }
+    success('Pengaturan profil dan ruangan berhasil diperbarui! ✨');
+  };
+
+  const handleLeaveRoom = () => {
+    if (confirm('Apakah kamu yakin ingin melepaskan/keluar dari ruangan ini?')) {
+      leaveCoupleRoom();
+      success('Berhasil keluar dari ruangan.');
+    }
   };
 
   return (
-    <form onSubmit={handleSave} className="bg-surface border border-border rounded-3xl p-4 sm:p-8 shadow-soft space-y-4 sm:space-y-6">
-      
-      <div className="flex items-center gap-2.5 border-b border-border pb-3 sm:pb-4">
-        <span className="p-1.5 sm:p-2 rounded-xl bg-terracotta-50 dark:bg-terracotta-950/60 text-terracotta-500">
-          <User className="w-4 h-4 sm:w-5 sm:h-5" />
-        </span>
-        <div>
-          <h3 className="font-serif text-lg sm:text-2xl font-semibold text-foreground">Profil Pribadi & Pasangan</h3>
-          <p className="text-xs sm:text-sm text-foreground-muted">Perbarui nama, avatar, dan awal mula hubungan kalian.</p>
-        </div>
-      </div>
-
-      {/* Avatar Presets & Custom */}
-      <div className="space-y-2">
-        <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-          Foto Profil Kamu
-        </label>
-        <div className="flex items-center gap-3">
-          <img
-            src={avatar || avatarPresets[0]}
-            alt="Avatar Saat Ini"
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-terracotta-500 shadow-sm shrink-0"
-          />
-          <div className="flex gap-2 overflow-x-auto">
-            {avatarPresets.map((preset, idx) => (
-              <button
-                type="button"
-                key={idx}
-                onClick={() => setAvatar(preset)}
-                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden border-2 transition-all cursor-pointer shrink-0 ${
-                  avatar === preset ? 'border-terracotta-500 ring-2 ring-terracotta-500/20 scale-105' : 'border-border opacity-70 hover:opacity-100'
-                }`}
-              >
-                <img src={preset} alt="Pilihan" className="w-full h-full object-cover" />
-              </button>
-            ))}
+    <>
+      <form onSubmit={handleSave} className="bg-surface border border-border rounded-3xl p-4 sm:p-8 shadow-soft space-y-5 sm:space-y-6">
+        
+        <div className="flex items-center gap-2.5 border-b border-border pb-3 sm:pb-4">
+          <span className="p-1.5 sm:p-2 rounded-xl bg-terracotta-50 dark:bg-terracotta-950/60 text-terracotta-500">
+            <User className="w-4 h-4 sm:w-5 sm:h-5" />
+          </span>
+          <div>
+            <h3 className="font-serif text-lg sm:text-2xl font-semibold text-foreground">Profil Pribadi & Ruang Pasangan</h3>
+            <p className="text-xs sm:text-sm text-foreground-muted">Kelola foto profil yang diunggah, nama, dan pengaturan ruang kalian.</p>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-        <Input
-          label="Nama Kamu"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-        <Input
-          label="Nama Pasangan"
-          value={partner?.name || ''}
-          disabled
-          helperText="Terhubung dengan profil pasanganmu"
-        />
-      </div>
+        {/* Dedicated Photo Upload Zone */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+            Foto Profil Kamu (Dari Hasil Unggahan Sendiri)
+          </label>
+          
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 rounded-2xl bg-surface-subtle border border-border">
+            <div className="relative shrink-0">
+              <img
+                src={previewAvatar}
+                alt="Foto Profil"
+                className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-2 sm:border-3 border-terracotta-500 shadow-sm bg-surface"
+              />
+              {avatar && avatar !== generateInitialsAvatar(name || user?.name || '') && (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="absolute -top-1 -right-1 p-1 bg-rose-500 text-white rounded-full hover:bg-rose-600 shadow-sm cursor-pointer"
+                  title="Hapus foto profil"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
-        <Input
-          label="Kota Asal Kamu"
-          value={userCity}
-          onChange={(e) => setUserCity(e.target.value)}
-          placeholder="contoh: Tokyo, Jakarta"
-        />
-        <Input
-          label="Kota Asal Pasangan"
-          value={partnerCity}
-          onChange={(e) => setPartnerCity(e.target.value)}
-          placeholder="contoh: Paris, London"
-        />
-      </div>
+            <div className="space-y-2 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  id="profile-photo-file-input"
+                />
+                <label
+                  htmlFor="profile-photo-file-input"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface hover:bg-surface-subtle border border-border text-xs font-medium text-foreground transition-colors cursor-pointer shadow-xs"
+                >
+                  <Upload className="w-4 h-4 text-terracotta-500" />
+                  <span>Pilih Foto Baru dari Galeri</span>
+                </label>
 
-      <Input
-        label="Tanggal Awal Jadian / Menikah"
-        type="date"
-        value={startDate}
-        onChange={(e) => setStartDate(e.target.value)}
-        required
+                {avatar && avatar !== generateInitialsAvatar(name || user?.name || '') && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="px-3 py-2 rounded-xl bg-transparent hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    Gunakan Inisial
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-foreground-muted leading-relaxed">
+                Foto profil 100% diambil dari file gambar yang kamu unggah sendiri tanpa foto preset orang asing.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* User & Partner Names */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+          <Input
+            label="Nama Kamu"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+
+          {isPending ? (
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+                Status Pasangan
+              </label>
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs flex items-center justify-between">
+                <span className="text-amber-800 dark:text-amber-200 font-medium">Menunggu pasangan bergabung</span>
+                <button
+                  type="button"
+                  onClick={() => setIsShareModalOpen(true)}
+                  className="text-amber-700 dark:text-amber-300 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Undang</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Input
+              label="Nama Pasangan (Terhubung)"
+              value={partner?.name || ''}
+              disabled
+              helperText={`Terhubung dengan akun ${partner?.email || ''}`}
+            />
+          )}
+        </div>
+
+        {/* City & Relationship Date */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+          <Input
+            label="Kota Asal Kamu"
+            value={userCity}
+            onChange={(e) => setUserCity(e.target.value)}
+            placeholder="contoh: Jakarta, Surabaya, Tokyo"
+          />
+
+          <Input
+            label="Tanggal Awal Jadian / Menikah"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            required
+          />
+        </div>
+
+        {/* Action buttons */}
+        <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
+          {couple && (
+            <button
+              type="button"
+              onClick={handleLeaveRoom}
+              className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer w-full sm:w-auto justify-center"
+            >
+              <Unlink className="w-3.5 h-3.5" />
+              <span>Tinggalkan / Keluar dari Ruangan Ini</span>
+            </button>
+          )}
+
+          <Button type="submit" variant="primary" className="w-full sm:w-auto ml-auto">
+            Simpan Perubahan Profil
+          </Button>
+        </div>
+
+      </form>
+
+      <CoupleShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
       />
-
-      <div className="pt-3 border-t border-border flex justify-end">
-        <Button type="submit" variant="primary" className="w-full sm:w-auto">
-          Simpan Perubahan Profil
-        </Button>
-      </div>
-
-    </form>
+    </>
   );
 };
+

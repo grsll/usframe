@@ -129,13 +129,15 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
                 </span>
               </div>
 
-              {hasPartnerAnswer ? (
+              {hasPartnerAnswer && partnerId ? (
                 <p className="text-xs sm:text-sm text-foreground leading-relaxed italic">
                   "{answers[partnerId]?.answer}"
                 </p>
               ) : (
                 <div className="py-3 text-center text-xs text-foreground-muted">
-                  Menunggu {partner?.name || 'pasanganmu'} menjawab untuk membuka kunci!
+                  {partner?.name
+                    ? `Menunggu ${partner.name} menjawab untuk membuka kunci!`
+                    : 'Belum ada pasangan terhubung. Undang pasanganmu untuk saling berbagi jawaban!'}
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, Couple } from '../types';
 import { storage } from '../lib/storage';
-import { generateInviteCode } from '../lib/utils';
+import { generateInviteCode, generateInitialsAvatar } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { INITIAL_USER, INITIAL_PARTNER, INITIAL_COUPLE } from '../data/initialData';
 
@@ -24,17 +24,17 @@ interface AuthContextType {
   currentView: AppView;
   setCurrentView: (view: AppView) => void;
   login: (email: string, pass: string) => Promise<boolean>;
-  register: (name: string, email: string, pass: string) => Promise<boolean>;
+  register: (name: string, email: string, pass: string, avatar?: string) => Promise<boolean>;
   loginDemo: () => void;
   logout: () => void;
   createCoupleRoom: (params: {
-    partnerName: string;
+    coupleName?: string;
     relationshipStartDate: string;
     nextMeetDate?: string;
     userCity?: string;
-    partnerCity?: string;
   }) => Promise<Couple>;
-  joinCoupleRoom: (inviteCode: string) => Promise<Couple>;
+  joinCoupleRoom: (inviteCode: string, userCity?: string) => Promise<Couple>;
+  leaveCoupleRoom: () => void;
   updateUser: (updates: Partial<UserProfile>) => void;
   updatePartnerMood: (emoji: string, label: string) => void;
   updateCoupleSettings: (updates: Partial<Couple>) => void;
@@ -99,6 +99,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Sync state whenever active user changes or mounts
+  useEffect(() => {
+    if (user?.id) {
+      const session = storage.syncUserSession(user.id);
+      setUserState(session.user);
+      setPartnerState(session.partner);
+      setCoupleState(session.couple);
+    }
+  }, []);
+
   const loginDemo = () => {
     storage.loadDemoData();
     setUserState(INITIAL_USER);
@@ -107,48 +117,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentView('home');
   };
 
-  const login = async (email: string, _pass: string): Promise<boolean> => {
-    // Attempt Supabase auth if connected
+  const login = async (email: string, pass: string): Promise<boolean> => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !pass) {
+      throw new Error('Harap isi alamat email dan kata sandi.');
+    }
+
+    // Try Supabase auth if connected
     try {
-      if (email && email.includes('@')) {
-        await supabase.auth.signInWithPassword({ email, password: _pass }).catch(() => null);
+      if (cleanEmail.includes('@')) {
+        await supabase.auth.signInWithPassword({ email: cleanEmail, password: pass }).catch(() => null);
       }
-    } catch {
-      // Fallback to local session
+    } catch {}
+
+    const existingUser = storage.findUserByEmail(cleanEmail);
+    if (!existingUser) {
+      throw new Error('Akun dengan email ini belum terdaftar. Silakan daftar akun baru terlebih dahulu.');
     }
 
-    const existingUser = storage.getUser();
-    let loggedUser: UserProfile;
-
-    if (existingUser && existingUser.email?.toLowerCase() === email.toLowerCase()) {
-      loggedUser = existingUser;
-    } else {
-      loggedUser = {
-        id: 'user_' + Math.random().toString(36).substring(2, 8),
-        name: email.split('@')[0],
-        email,
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
-        current_mood: '😊',
-        mood_label: 'Bahagia & Terhubung',
-        status_activity: 'Online di ruang kita',
-        created_at: new Date().toISOString()
-      };
-      storage.setUser(loggedUser);
+    if (existingUser.password && existingUser.password !== pass) {
+      throw new Error('Kata sandi yang Anda masukkan salah. Silakan coba lagi.');
     }
 
+    const { user: loggedUser, partner: resolvedPartner, couple: resolvedCouple } = storage.syncUserSession(existingUser.id);
+    
     setUserState(loggedUser);
+    setPartnerState(resolvedPartner);
+    setCoupleState(resolvedCouple);
 
-    const existingCouple = storage.getCouple();
-    const existingPartner = storage.getPartner();
-
-    if (existingCouple) {
-      setCoupleState(existingCouple);
-    }
-    if (existingPartner) {
-      setPartnerState(existingPartner);
-    }
-
-    if (existingCouple) {
+    if (resolvedCouple) {
       setCurrentView('home');
     } else {
       setCurrentView('onboarding');
@@ -157,32 +154,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return true;
   };
 
-  const register = async (name: string, email: string, _pass: string): Promise<boolean> => {
-    try {
-      if (email && email.includes('@')) {
-        await supabase.auth.signUp({
-          email,
-          password: _pass,
-          options: { data: { name } }
-        }).catch(() => null);
-      }
-    } catch {
-      // Fallback
+  const register = async (name: string, email: string, pass: string, avatar?: string): Promise<boolean> => {
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanName || !cleanEmail || !pass) {
+      throw new Error('Mohon lengkapi semua kolom pendaftaran.');
     }
 
+    const existingUser = storage.findUserByEmail(cleanEmail);
+    if (existingUser) {
+      throw new Error('Alamat email sudah terdaftar. Silakan masuk menggunakan akun Anda.');
+    }
+
+    try {
+      if (cleanEmail.includes('@')) {
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password: pass,
+          options: { data: { name: cleanName } }
+        }).catch(() => null);
+      }
+    } catch {}
+
+    const finalAvatar = avatar && avatar.trim() ? avatar : generateInitialsAvatar(cleanName);
+
     const newUser: UserProfile = {
-      id: 'user_' + Math.random().toString(36).substring(2, 8),
-      name: name || email.split('@')[0],
-      email,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+      id: 'user_' + Math.random().toString(36).substring(2, 9),
+      name: cleanName,
+      email: cleanEmail,
+      password: pass,
+      avatar: finalAvatar,
+      couple_id: null,
       current_mood: '🥰',
       mood_label: 'Siap memulai kisah kita',
       status_activity: 'Menyiapkan ruang pasangan',
       created_at: new Date().toISOString()
     };
 
-    setUserState(newUser);
+    storage.saveUserToDB(newUser);
     storage.setUser(newUser);
+    storage.setCouple(null);
+    storage.setPartner(null);
+
+    setUserState(newUser);
+    setCoupleState(null);
+    setPartnerState(null);
     setCurrentView('onboarding');
     return true;
   };
@@ -191,116 +208,124 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       supabase.auth.signOut().catch(() => null);
     } catch {}
-    // Do NOT wipe couple data or memories so reconnecting is instant and safe
+    storage.setUser(null);
+    storage.setCouple(null);
+    storage.setPartner(null);
     setUserState(null);
+    setCoupleState(null);
+    setPartnerState(null);
     setCurrentView('landing');
   };
 
   const createCoupleRoom = async (params: {
-    partnerName: string;
+    coupleName?: string;
     relationshipStartDate: string;
     nextMeetDate?: string;
     userCity?: string;
-    partnerCity?: string;
   }): Promise<Couple> => {
+    if (!user) throw new Error('Harap masuk terlebih dahulu.');
+
     const inviteCode = generateInviteCode();
     const newCouple: Couple = {
-      id: 'couple_' + Math.random().toString(36).substring(2, 8),
+      id: 'couple_' + Math.random().toString(36).substring(2, 9),
       invite_code: inviteCode,
-      status: 'active',
-      member_ids: [user?.id || 'user_1', 'partner_pending'],
-      couple_name: `${user?.name || 'Kamu'} × ${params.partnerName || 'Pasangan'}`,
+      status: 'pending',
+      member_ids: [user.id],
+      couple_name: params.coupleName || `Ruang ${user.name}`,
       relationship_start_date: params.relationshipStartDate || new Date().toISOString().split('T')[0],
       next_meet_date: params.nextMeetDate || null,
       user_city: params.userCity || 'Jakarta',
-      partner_city: params.partnerCity || 'Bandung',
-      distance_km: 150,
       created_at: new Date().toISOString()
     };
 
-    const newPartner: UserProfile = {
-      id: 'partner_' + Math.random().toString(36).substring(2, 8),
-      name: params.partnerName || 'Pasangan',
-      email: `${params.partnerName?.toLowerCase().replace(/\s+/g, '') || 'pasangan'}@uscouple.app`,
-      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&auto=format&fit=crop&q=80',
-      couple_id: newCouple.id,
-      current_mood: '✨',
-      mood_label: 'Menunggu bersama',
-      status_activity: `Di ${params.partnerCity || 'Kota Pasangan'}`,
-      location_name: params.partnerCity || 'Indonesia',
-      last_active: 'Baru saja',
-      created_at: new Date().toISOString()
-    };
+    // Save couple & link user
+    storage.saveCoupleToDB(newCouple);
+    const updatedUser: UserProfile = { ...user, couple_id: newCouple.id };
+    storage.saveUserToDB(updatedUser);
+    storage.setUser(updatedUser);
 
-    if (user) {
-      const updatedUser = { ...user, couple_id: newCouple.id };
-      setUserState(updatedUser);
-      storage.setUser(updatedUser);
-    }
-
-    setPartnerState(newPartner);
-    storage.setPartner(newPartner);
-
+    setUserState(updatedUser);
     setCoupleState(newCouple);
-    storage.setCouple(newCouple);
+    setPartnerState(null);
 
     setCurrentView('home');
     return newCouple;
   };
 
-  const joinCoupleRoom = async (inviteCode: string): Promise<Couple> => {
+  const joinCoupleRoom = async (inviteCode: string, userCity?: string): Promise<Couple> => {
+    if (!user) throw new Error('Harap masuk terlebih dahulu.');
     const code = inviteCode.trim().toUpperCase();
-    const currentCouple = storage.getCouple() || {
-      id: 'couple_' + Math.random().toString(36).substring(2, 8),
-      invite_code: code,
-      status: 'active' as const,
-      member_ids: [user?.id || 'user_joined', 'partner_owner'],
-      couple_name: `${user?.name || 'Kamu'} × Pasangan`,
-      relationship_start_date: new Date().toISOString().split('T')[0],
-      user_city: 'Jakarta',
-      partner_city: 'Surabaya',
-      created_at: new Date().toISOString()
-    };
-    
-    const joinedCouple: Couple = {
-      ...currentCouple,
-      invite_code: code,
-      status: 'active',
-      member_ids: [user?.id || 'user_joined', currentCouple.member_ids[0]]
-    };
 
-    setCoupleState(joinedCouple);
-    storage.setCouple(joinedCouple);
+    if (!code) throw new Error('Silakan masukkan 6 karakter kode undangan.');
 
-    if (user) {
-      const updatedUser = { ...user, couple_id: joinedCouple.id };
-      setUserState(updatedUser);
-      storage.setUser(updatedUser);
+    const targetCouple = storage.findCoupleByInviteCode(code);
+    if (!targetCouple) {
+      throw new Error(`Ruangan dengan kode "${code}" tidak ditemukan. Pastikan kodenya benar.`);
     }
 
+    if (targetCouple.member_ids.includes(user.id)) {
+      throw new Error('Kamu sudah bergabung di dalam ruangan ini.');
+    }
+
+    if (targetCouple.member_ids.length >= 2) {
+      throw new Error('Ruangan ini sudah terhubung penuh dengan 2 anggota.');
+    }
+
+    const newMemberIds = [...targetCouple.member_ids, user.id];
+    const owner = storage.findUserById(targetCouple.member_ids[0]);
+
+    const updatedCouple: Couple = {
+      ...targetCouple,
+      member_ids: newMemberIds,
+      status: 'active',
+      couple_name: targetCouple.couple_name && !targetCouple.couple_name.startsWith('Ruang ')
+        ? targetCouple.couple_name
+        : `${owner?.name || 'Pasangan'} × ${user.name}`,
+      partner_city: userCity || user.location_name || targetCouple.partner_city || 'Bandung'
+    };
+
+    storage.saveCoupleToDB(updatedCouple);
+    const updatedUser: UserProfile = { ...user, couple_id: updatedCouple.id };
+    storage.saveUserToDB(updatedUser);
+    storage.setUser(updatedUser);
+
+    setUserState(updatedUser);
+    setCoupleState(updatedCouple);
+    setPartnerState(owner || null);
+
     setCurrentView('home');
-    return joinedCouple;
+    return updatedCouple;
+  };
+
+  const leaveCoupleRoom = () => {
+    if (!user) return;
+    storage.removeUserFromCouple(user.id);
+    const updatedUser = { ...user, couple_id: null };
+    setUserState(updatedUser);
+    setCoupleState(null);
+    setPartnerState(null);
+    setCurrentView('onboarding');
   };
 
   const updateUser = (updates: Partial<UserProfile>) => {
     if (!user) return;
     const updated = { ...user, ...updates };
     setUserState(updated);
-    storage.setUser(updated);
+    storage.saveUserToDB(updated);
   };
 
   const updatePartnerMood = (emoji: string, label: string) => {
     if (!partner) return;
     const updated = { ...partner, current_mood: emoji, mood_label: label };
     setPartnerState(updated);
-    storage.setPartner(updated);
+    storage.saveUserToDB(updated);
   };
 
   const updateCoupleSettings = (updates: Partial<Couple>) => {
     if (!couple) return;
     const updated = { ...couple, ...updates };
     setCoupleState(updated);
-    storage.setCouple(updated);
+    storage.saveCoupleToDB(updated);
   };
 
   const sendHeartPulse = (message = 'Aku kangen kamu saat ini 🤍') => {
@@ -330,6 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         createCoupleRoom,
         joinCoupleRoom,
+        leaveCoupleRoom,
         updateUser,
         updatePartnerMood,
         updateCoupleSettings,
@@ -348,3 +374,4 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
+

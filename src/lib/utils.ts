@@ -177,3 +177,62 @@ export function playSuccessChime() {
     });
   } catch (e) {}
 }
+
+/**
+ * Generate a clean SVG Initials Avatar with a terracotta/warm color background
+ */
+export function generateInitialsAvatar(name: string, bg = '#D95D39', color = '#FFFFFF'): string {
+  const cleanName = (name || 'U').trim();
+  const initial = cleanName.charAt(0).toUpperCase() || 'U';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" rx="64" fill="${encodeURIComponent(bg)}"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="56" font-weight="700" fill="${encodeURIComponent(color)}">${initial}</text></svg>`;
+  return `data:image/svg+xml;utf8,${svg}`;
+}
+
+/**
+ * Compress an uploaded image using HTML Canvas into a compact data URL
+ */
+export function compressImage(file: File, maxWidth = 400, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (!result) {
+        resolve('');
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(result);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(result);
+      img.src = result;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
