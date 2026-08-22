@@ -4,7 +4,7 @@ import { Camera, Sparkles, Shield, ArrowRight, Globe, Heart, MessageCircle, Cale
 import { Button } from '../components/ui/Button';
 
 export const LandingPage: React.FC = () => {
-  const { setCurrentView } = useAuth();
+  const { setCurrentView, loginDemo } = useAuth();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-terracotta-200">
@@ -70,7 +70,7 @@ export const LandingPage: React.FC = () => {
             </Button>
 
             <Button
-              onClick={() => setCurrentView('home')}
+              onClick={() => loginDemo()}
               variant="outline"
               size="lg"
               className="w-full sm:w-auto px-6 py-3.5 sm:py-4 text-base"

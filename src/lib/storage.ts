@@ -22,6 +22,7 @@ const KEYS = {
   DAILY_QUESTION: 'us_daily_question',
   BUCKET_LIST: 'us_bucket_list',
   THEME: 'us_theme_preference',
+  VIEW: 'us_current_view',
   AUTH_SESSION: 'us_auth_session'
 };
 
@@ -50,46 +51,71 @@ const safeSetItem = (key: string, value: string): void => {
   }
 };
 
+const safeRemoveItem = (key: string): void => {
+  delete memoryStore[key];
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(key);
+    }
+  } catch (err) {}
+};
+
 const safeParse = <T>(key: string, fallback: T): T => {
   try {
     const raw = safeGetItem(key);
     if (!raw || raw === 'undefined' || raw === 'null') {
-      safeSetItem(key, JSON.stringify(fallback));
       return fallback;
     }
     const parsed = JSON.parse(raw);
-    return parsed ?? fallback;
+    return (parsed !== null && parsed !== undefined) ? parsed : fallback;
   } catch (err) {
-    safeSetItem(key, JSON.stringify(fallback));
     return fallback;
   }
 };
 
 export const storage = {
-  getUser: (): UserProfile => {
-    return safeParse(KEYS.USER, INITIAL_USER);
+  getUser: (): UserProfile | null => {
+    return safeParse<UserProfile | null>(KEYS.USER, null);
   },
-  setUser: (user: UserProfile) => {
-    safeSetItem(KEYS.USER, JSON.stringify(user));
-  },
-
-  getPartner: (): UserProfile => {
-    return safeParse(KEYS.PARTNER, INITIAL_PARTNER);
-  },
-  setPartner: (partner: UserProfile) => {
-    safeSetItem(KEYS.PARTNER, JSON.stringify(partner));
+  setUser: (user: UserProfile | null) => {
+    if (!user) {
+      safeRemoveItem(KEYS.USER);
+    } else {
+      safeSetItem(KEYS.USER, JSON.stringify(user));
+    }
   },
 
-  getCouple: (): Couple => {
-    return safeParse(KEYS.COUPLE, INITIAL_COUPLE);
+  getPartner: (): UserProfile | null => {
+    return safeParse<UserProfile | null>(KEYS.PARTNER, null);
   },
-  setCouple: (couple: Couple) => {
-    safeSetItem(KEYS.COUPLE, JSON.stringify(couple));
+  setPartner: (partner: UserProfile | null) => {
+    if (!partner) {
+      safeRemoveItem(KEYS.PARTNER);
+    } else {
+      safeSetItem(KEYS.PARTNER, JSON.stringify(partner));
+    }
+  },
+
+  getCouple: (): Couple | null => {
+    return safeParse<Couple | null>(KEYS.COUPLE, null);
+  },
+  setCouple: (couple: Couple | null) => {
+    if (!couple) {
+      safeRemoveItem(KEYS.COUPLE);
+    } else {
+      safeSetItem(KEYS.COUPLE, JSON.stringify(couple));
+    }
+  },
+
+  getCurrentView: (): string | null => {
+    return safeGetItem(KEYS.VIEW);
+  },
+  setCurrentView: (view: string) => {
+    safeSetItem(KEYS.VIEW, view);
   },
 
   getMemories: (): Memory[] => {
-    const list = safeParse<Memory[]>(KEYS.MEMORIES, INITIAL_MEMORIES);
-    return Array.isArray(list) && list.length > 0 ? list : INITIAL_MEMORIES;
+    return safeParse<Memory[]>(KEYS.MEMORIES, []);
   },
   setMemories: (memories: Memory[]) => {
     safeSetItem(KEYS.MEMORIES, JSON.stringify(memories));
@@ -102,8 +128,7 @@ export const storage = {
   },
 
   getMilestones: (): Milestone[] => {
-    const list = safeParse<Milestone[]>(KEYS.MILESTONES, INITIAL_MILESTONES);
-    return Array.isArray(list) && list.length > 0 ? list : INITIAL_MILESTONES;
+    return safeParse<Milestone[]>(KEYS.MILESTONES, []);
   },
   setMilestones: (milestones: Milestone[]) => {
     safeSetItem(KEYS.MILESTONES, JSON.stringify(milestones));
@@ -116,8 +141,7 @@ export const storage = {
   },
 
   getCountdowns: (): Countdown[] => {
-    const list = safeParse<Countdown[]>(KEYS.COUNTDOWNS, INITIAL_COUNTDOWNS);
-    return Array.isArray(list) && list.length > 0 ? list : INITIAL_COUNTDOWNS;
+    return safeParse<Countdown[]>(KEYS.COUNTDOWNS, []);
   },
   setCountdowns: (countdowns: Countdown[]) => {
     safeSetItem(KEYS.COUNTDOWNS, JSON.stringify(countdowns));
@@ -130,8 +154,7 @@ export const storage = {
   },
 
   getLoveNotes: (): LoveNote[] => {
-    const list = safeParse<LoveNote[]>(KEYS.LOVE_NOTES, INITIAL_LOVE_NOTES);
-    return Array.isArray(list) && list.length > 0 ? list : INITIAL_LOVE_NOTES;
+    return safeParse<LoveNote[]>(KEYS.LOVE_NOTES, []);
   },
   setLoveNotes: (notes: LoveNote[]) => {
     safeSetItem(KEYS.LOVE_NOTES, JSON.stringify(notes));
@@ -144,19 +167,31 @@ export const storage = {
   },
 
   getDailyQuestion: (): DailyQuestion => {
-    const dq = safeParse<DailyQuestion>(KEYS.DAILY_QUESTION, INITIAL_DAILY_QUESTION);
-    return dq && dq.question && dq.answers ? dq : INITIAL_DAILY_QUESTION;
+    const dq = safeParse<DailyQuestion | null>(KEYS.DAILY_QUESTION, null);
+    return dq ?? INITIAL_DAILY_QUESTION;
   },
   setDailyQuestion: (dq: DailyQuestion) => {
     safeSetItem(KEYS.DAILY_QUESTION, JSON.stringify(dq));
   },
 
   getBucketList: (): BucketListItem[] => {
-    const list = safeParse<BucketListItem[]>(KEYS.BUCKET_LIST, INITIAL_BUCKET_LIST);
-    return Array.isArray(list) && list.length > 0 ? list : INITIAL_BUCKET_LIST;
+    return safeParse<BucketListItem[]>(KEYS.BUCKET_LIST, []);
   },
   setBucketList: (items: BucketListItem[]) => {
     safeSetItem(KEYS.BUCKET_LIST, JSON.stringify(items));
+  },
+
+  loadDemoData: () => {
+    storage.setUser(INITIAL_USER);
+    storage.setPartner(INITIAL_PARTNER);
+    storage.setCouple(INITIAL_COUPLE);
+    storage.setMemories(INITIAL_MEMORIES);
+    storage.setMilestones(INITIAL_MILESTONES);
+    storage.setCountdowns(INITIAL_COUNTDOWNS);
+    storage.setLoveNotes(INITIAL_LOVE_NOTES);
+    storage.setDailyQuestion(INITIAL_DAILY_QUESTION);
+    storage.setBucketList(INITIAL_BUCKET_LIST);
+    storage.setCurrentView('home');
   },
 
   resetAll: () => {

@@ -52,15 +52,21 @@ export const TimelineList: React.FC<TimelineListProps> = ({
       </div>
 
       {/* Timeline Stream */}
-      <div className="relative pl-1 sm:pl-4">
-        {sortedMilestones.map((milestone, idx) => (
-          <TimelineCard
-            key={milestone.id}
-            milestone={milestone}
-            isLast={idx === sortedMilestones.length - 1}
-          />
-        ))}
-      </div>
+      {sortedMilestones.length === 0 ? (
+        <div className="bg-surface border border-border rounded-3xl p-8 text-center shadow-soft">
+          <p className="text-xs sm:text-sm text-foreground-muted">Belum ada tonggak cerita yang ditambahkan. Catat pertemuan pertama, hari jadian, atau momen berkesan kalian!</p>
+        </div>
+      ) : (
+        <div className="relative pl-1 sm:pl-4">
+          {sortedMilestones.map((milestone, idx) => (
+            <TimelineCard
+              key={milestone.id}
+              milestone={milestone}
+              isLast={idx === sortedMilestones.length - 1}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Add Milestone Modal */}
       <AddMilestoneModal

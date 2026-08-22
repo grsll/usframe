@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button';
 import { Sparkles, ArrowLeft } from 'lucide-react';
 
 export const AuthPage: React.FC = () => {
-  const { login, register, setCurrentView } = useAuth();
+  const { login, register, loginDemo, setCurrentView } = useAuth();
   const { error, success } = useToast();
 
   const [mode, setMode] = useState<'login' | 'register'>('register');
@@ -36,11 +36,9 @@ export const AuthPage: React.FC = () => {
     }
   };
 
-  const handleDemoAccess = async () => {
-    setIsLoading(true);
-    await login('kai@uscouple.app', 'demo1234');
+  const handleDemoAccess = () => {
+    loginDemo();
     success('Berhasil masuk dengan akun demo Kai & Elena! ✨');
-    setIsLoading(false);
   };
 
   return (
