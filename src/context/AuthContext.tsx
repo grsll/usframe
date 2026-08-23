@@ -615,7 +615,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const session = await syncRemoteSession(data.user.id);
     await fetchUserRooms();
-    setCurrentView('onboarding');
+    if (session.couple) {
+      setCurrentView('home');
+    } else {
+      setCurrentView('onboarding');
+    }
 
     return true;
   };
