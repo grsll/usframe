@@ -56,15 +56,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUserState] = useState<UserProfile | null>(() => {
-    return storage.getUser();
-  });
-  const [partner, setPartnerState] = useState<UserProfile | null>(() => {
-    return storage.getPartner();
-  });
-  const [couple, setCoupleState] = useState<Couple | null>(() => {
-    return storage.getCouple();
-  });
+  const [user, setUserState] = useState<UserProfile | null>(() => storage.getUser());
+  const [partner, setPartnerState] = useState<UserProfile | null>(() => storage.getPartner());
+  const [couple, setCoupleState] = useState<Couple | null>(() => storage.getCouple());
 
   const [currentView, setCurrentViewState] = useState<AppView>(() => {
     if (typeof window !== 'undefined') {
@@ -100,6 +94,125 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     storage.setCurrentView(view);
   };
 
+  // Sync complete user, couple, and partner session from Supabase
+  const syncRemoteSession = useCallback(async (userId: string): Promise<{ user: UserProfile | null; partner: UserProfile | null; couple: Couple | null }> => {
+    if (!isUuid(userId)) {
+      return storage.syncUserSession(userId);
+    }
+
+    try {
+      // 1. Fetch user's profile from Supabase
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!profile) {
+        return { user: null, partner: null, couple: null };
+      }
+
+      const currentUser: UserProfile = {
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        avatar: profile.photo_url || generateInitialsAvatar(profile.name),
+        couple_id: profile.couple_id || null,
+        current_mood: profile.current_mood || '🥰',
+        mood_label: profile.mood_label || 'Siap melanjutkan kisah kita',
+        status_activity: profile.status_activity || 'Santai di rumah',
+        location_name: profile.location_name,
+        created_at: profile.created_at
+      };
+
+      storage.saveUserToDB(currentUser);
+      storage.setUser(currentUser);
+      setUserState(currentUser);
+
+      // 2. If user has no couple room yet
+      if (!profile.couple_id) {
+        storage.setCouple(null);
+        storage.setPartner(null);
+        setCoupleState(null);
+        setPartnerState(null);
+        return { user: currentUser, partner: null, couple: null };
+      }
+
+      // 3. Fetch couple room data from Supabase
+      const { data: coupleRow } = await supabase
+        .from('couples')
+        .select('*')
+        .eq('id', profile.couple_id)
+        .maybeSingle();
+
+      if (!coupleRow) {
+        storage.setCouple(null);
+        storage.setPartner(null);
+        setCoupleState(null);
+        setPartnerState(null);
+        return { user: currentUser, partner: null, couple: null };
+      }
+
+      const currentCouple: Couple = {
+        id: coupleRow.id,
+        invite_code: coupleRow.invite_code,
+        status: coupleRow.status,
+        member_ids: coupleRow.member_ids || [],
+        couple_name: coupleRow.couple_name,
+        relationship_start_date: coupleRow.relationship_start_date,
+        next_meet_date: coupleRow.next_meet_date,
+        user_city: coupleRow.user_city,
+        partner_city: coupleRow.partner_city,
+        created_at: coupleRow.created_at
+      };
+
+      storage.saveCoupleToDB(currentCouple);
+      storage.setCouple(currentCouple);
+      setCoupleState(currentCouple);
+
+      // 4. Resolve partner profile from Supabase profiles table
+      const partnerId = (coupleRow.member_ids || []).find((id: string) => id !== userId);
+      let currentPartner: UserProfile | null = null;
+
+      if (partnerId && isUuid(partnerId)) {
+        const { data: partnerRow } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', partnerId)
+          .maybeSingle();
+
+        if (partnerRow) {
+          currentPartner = {
+            id: partnerRow.id,
+            name: partnerRow.name,
+            email: partnerRow.email,
+            avatar: partnerRow.photo_url || generateInitialsAvatar(partnerRow.name),
+            couple_id: partnerRow.couple_id || coupleRow.id,
+            current_mood: partnerRow.current_mood || '🥰',
+            mood_label: partnerRow.mood_label || 'Aktif di ruang berdua',
+            status_activity: partnerRow.status_activity || 'Online',
+            location_name: partnerRow.location_name,
+            created_at: partnerRow.created_at
+          };
+
+          storage.saveUserToDB(currentPartner);
+          storage.setPartner(currentPartner);
+          setPartnerState(currentPartner);
+        }
+      }
+
+      if (!currentPartner) {
+        storage.setPartner(null);
+        setPartnerState(null);
+      }
+
+      return { user: currentUser, partner: currentPartner, couple: currentCouple };
+    } catch (err) {
+      console.warn('Error syncing remote session:', err);
+      return storage.syncUserSession(userId);
+    }
+  }, []);
+
   // Check URL params for invite code or initial view
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -109,25 +222,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Sync state whenever active user changes or mounts
+  // Session Persistence on Boot and Auth State Listener
   useEffect(() => {
-    if (user?.id) {
-      const session = storage.syncUserSession(user.id);
-      setUserState(session.user);
-      setPartnerState(session.partner);
-      setCoupleState(session.couple);
-    }
-  }, []);
+    let isMounted = true;
 
-  // Realtime Broadcast Channel for Room Events (Heart Pulse & Mood updates)
+    const restoreSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        if (session?.user?.id) {
+          const synced = await syncRemoteSession(session.user.id);
+          if (isMounted) {
+            if (synced.couple) {
+              // Maintain active page or set home
+              const currentSavedView = storage.getCurrentView() as AppView | null;
+              const validViews: AppView[] = ['home', 'memories', 'usframe', 'timeline', 'together', 'settings'];
+              if (currentSavedView && validViews.includes(currentSavedView)) {
+                setCurrentViewState(currentSavedView);
+              } else {
+                setCurrentView('home');
+              }
+            } else {
+              setCurrentView('onboarding');
+            }
+          }
+        } else {
+          // If no remote Supabase session, check local storage (for demo login)
+          const localUser = storage.getUser();
+          if (localUser && (localUser.id === INITIAL_USER.id || localUser.id === INITIAL_PARTNER.id)) {
+            const localSession = storage.syncUserSession(localUser.id);
+            setUserState(localSession.user);
+            setPartnerState(localSession.partner);
+            setCoupleState(localSession.couple);
+          } else {
+            setUserState(null);
+            setPartnerState(null);
+            setCoupleState(null);
+          }
+        }
+      } catch (err) {
+        console.warn('Session restoration error:', err);
+      }
+    };
+
+    restoreSession();
+
+    // Listen to Supabase auth events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session?.user?.id) {
+          await syncRemoteSession(session.user.id);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setUserState(null);
+        setPartnerState(null);
+        setCoupleState(null);
+        storage.setUser(null);
+        storage.setCouple(null);
+        storage.setPartner(null);
+        setCurrentView('landing');
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [syncRemoteSession]);
+
+  // Realtime Broadcast Channel & Database changes for Couple Room
   useEffect(() => {
     if (!couple?.id) return;
 
-    const channel = supabase.channel(`couple_room_${couple.id}`, {
+    // 1. Broadcast channel for pulse & live mood
+    const roomChannel = supabase.channel(`couple_room_${couple.id}`, {
       config: { broadcast: { self: false } }
     });
 
-    channel
+    roomChannel
       .on('broadcast', { event: 'heart_pulse' }, (payload) => {
         const data = payload.payload;
         if (data && data.senderId !== user?.id) {
@@ -155,10 +330,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       .subscribe();
 
+    // 2. Realtime listener on couples table (e.g. when partner joins room)
+    const coupleDbChannel = supabase
+      .channel(`db_couple_${couple.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'couples',
+          filter: `id=eq.${couple.id}`
+        },
+        () => {
+          if (user?.id) {
+            syncRemoteSession(user.id);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(roomChannel);
+      supabase.removeChannel(coupleDbChannel);
     };
-  }, [couple?.id, user?.id]);
+  }, [couple?.id, user?.id, syncRemoteSession]);
 
   const loginDemo = () => {
     storage.loadDemoData();
@@ -174,91 +369,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Harap isi alamat email dan kata sandi.');
     }
 
-    // Try Supabase auth if connected
-    let remoteUserId: string | null = null;
-    try {
-      if (cleanEmail.includes('@')) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: pass });
-        if (!error && isUuid(data.user?.id)) {
-          remoteUserId = data.user!.id;
-        }
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: pass
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('email not confirmed')) {
+        throw new Error('Email belum dikonfirmasi. Silakan periksa inbox/spam email Anda untuk tautan verifikasi atau nonaktifkan email confirmation di dashboard Supabase.');
       }
-    } catch {}
-
-    let existingUser = storage.findUserByEmail(cleanEmail);
-    if (!existingUser && remoteUserId) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', remoteUserId)
-        .maybeSingle();
-
-      if (profile) {
-        existingUser = {
-          id: remoteUserId,
-          name: profile.name || cleanEmail.split('@')[0],
-          email: profile.email || cleanEmail,
-          password: pass,
-          avatar: profile.photo_url || generateInitialsAvatar(profile.name || cleanEmail),
-          couple_id: profile.couple_id || null,
-          current_mood: profile.current_mood || '🥰',
-          mood_label: profile.mood_label || 'Siap melanjutkan kisah kita',
-          status_activity: profile.status_activity || 'Online',
-          location_name: profile.location_name,
-          created_at: profile.created_at
-        };
-        storage.saveUserToDB(existingUser);
+      if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+        throw new Error('Email atau kata sandi yang Anda masukkan salah. Silakan coba lagi.');
       }
+      throw new Error(error.message || 'Gagal masuk ke akun.');
     }
 
-    if (!existingUser && !remoteUserId) {
-      throw new Error('Akun dengan email ini belum terdaftar. Silakan daftar akun baru terlebih dahulu.');
+    if (!data.user?.id) {
+      throw new Error('Gagal memuat sesi pengguna dari server.');
     }
 
-    if (existingUser && existingUser.password && existingUser.password !== pass && !remoteUserId) {
-      throw new Error('Kata sandi yang Anda masukkan salah. Silakan coba lagi.');
-    }
-
-    const loginUser = remoteUserId && existingUser && existingUser.id !== remoteUserId
-      ? { ...existingUser, id: remoteUserId }
-      : existingUser || {
-          id: remoteUserId!,
-          name: cleanEmail.split('@')[0],
-          email: cleanEmail,
-          password: pass,
-          avatar: generateInitialsAvatar(cleanEmail),
-          couple_id: null,
-          created_at: new Date().toISOString()
-        };
-
-    storage.saveUserToDB(loginUser);
-
-    if (remoteUserId && loginUser.couple_id) {
-      const { data: remoteCouple } = await supabase
-        .from('couples')
-        .select('*')
-        .eq('id', loginUser.couple_id)
-        .maybeSingle();
-      if (remoteCouple) {
-        storage.saveCoupleToDB({
-          id: remoteCouple.id,
-          invite_code: remoteCouple.invite_code,
-          status: remoteCouple.status,
-          member_ids: remoteCouple.member_ids,
-          relationship_start_date: remoteCouple.relationship_start_date,
-          next_meet_date: remoteCouple.next_meet_date,
-          created_at: remoteCouple.created_at
-        });
-      }
-    }
-
-    const { user: loggedUser, partner: resolvedPartner, couple: resolvedCouple } = storage.syncUserSession(loginUser.id);
-    
-    setUserState(loggedUser);
-    setPartnerState(resolvedPartner);
-    setCoupleState(resolvedCouple);
-
-    if (resolvedCouple) {
+    const session = await syncRemoteSession(data.user.id);
+    if (session.couple) {
       setCurrentView('home');
     } else {
       setCurrentView('onboarding');
@@ -275,39 +407,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Mohon lengkapi semua kolom pendaftaran.');
     }
 
-    const existingUser = storage.findUserByEmail(cleanEmail);
-    if (existingUser) {
-      throw new Error('Alamat email sudah terdaftar. Silakan masuk menggunakan akun Anda.');
-    }
+    const finalAvatar = avatar && avatar.trim() ? avatar : generateInitialsAvatar(cleanName);
 
-    // Step 7: Strict Supabase registration - Never silently fallback to local fake user
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password: pass,
-      options: { data: { name: cleanName } }
+      options: {
+        data: {
+          name: cleanName,
+          photo_url: finalAvatar
+        }
+      }
     });
 
-    if (error || !data.user?.id) {
-      throw new Error(error?.message || 'Pendaftaran ke server Supabase gagal. Silakan periksa koneksi internet dan coba lagi.');
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('already registered') || msg.includes('already exists')) {
+        throw new Error('Alamat email sudah terdaftar. Silakan langsung masuk ke akun Anda.');
+      }
+      if (msg.includes('password')) {
+        throw new Error('Kata sandi terlalu pendek. Gunakan minimal 6 karakter.');
+      }
+      throw new Error(error.message || 'Pendaftaran ke server Supabase gagal.');
+    }
+
+    if (!data.user?.id) {
+      throw new Error('Pendaftaran gagal dibuat di server.');
     }
 
     const remoteUserId = data.user.id;
-    const finalAvatar = avatar && avatar.trim() ? avatar : generateInitialsAvatar(cleanName);
 
-    const newUser: UserProfile = {
-      id: remoteUserId,
-      name: cleanName,
-      email: cleanEmail,
-      password: pass,
-      avatar: finalAvatar,
-      couple_id: null,
-      current_mood: '🥰',
-      mood_label: 'Siap memulai kisah kita',
-      status_activity: 'Menyiapkan ruang pasangan',
-      created_at: new Date().toISOString()
-    };
-
-    // Upsert profile in Supabase profiles table
+    // Create or update profile in Supabase profiles table
     try {
       await supabase.from('profiles').upsert({
         id: remoteUserId,
@@ -319,15 +449,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         status_activity: 'Santai di rumah'
       }, { onConflict: 'id' });
     } catch (profileErr) {
-      console.warn('Profile record save warning:', profileErr);
+      console.warn('Profile upsert warning:', profileErr);
     }
 
-    storage.saveUserToDB(newUser);
-    storage.setUser(newUser);
+    if (data.session) {
+      await syncRemoteSession(remoteUserId);
+    } else {
+      const newUser: UserProfile = {
+        id: remoteUserId,
+        name: cleanName,
+        email: cleanEmail,
+        avatar: finalAvatar,
+        couple_id: null,
+        current_mood: '🥰',
+        mood_label: 'Siap memulai kisah kita',
+        status_activity: 'Menyiapkan ruang pasangan',
+        created_at: new Date().toISOString()
+      };
+      storage.saveUserToDB(newUser);
+      storage.setUser(newUser);
+      setUserState(newUser);
+    }
+
     storage.setCouple(null);
     storage.setPartner(null);
-
-    setUserState(newUser);
     setCoupleState(null);
     setPartnerState(null);
     setCurrentView('onboarding');
@@ -355,14 +500,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }): Promise<Couple> => {
     if (!user) throw new Error('Harap masuk terlebih dahulu.');
 
-    // Step 5: Validate unique invite code against server
     const inviteCode = await roomService.generateUniqueInviteCodeAsync();
     const remoteUserId = await getRemoteUserId();
-    
-    if (!remoteUserId && user.id !== INITIAL_USER.id && user.id !== INITIAL_PARTNER.id) {
-      throw new Error('Akun ini belum tersambung ke server. Masuk kembali setelah verifikasi email agar kode undangan bisa dipakai di perangkat lain.');
-    }
-    
+
     if (remoteUserId && remoteUserId === user.id) {
       const { data, error } = await supabase
         .from('couples')
@@ -379,31 +519,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error || !data) {
-        throw new Error('Room gagal disimpan ke server. Pastikan tabel couples Supabase sudah aktif.');
+        console.error('Supabase create room error:', error);
+        throw new Error(error?.message || 'Room gagal disimpan ke server. Pastikan tabel couples Supabase sudah aktif.');
       }
 
-      const remoteCouple: Couple = {
-        id: data.id,
-        invite_code: data.invite_code,
-        status: data.status,
-        member_ids: data.member_ids,
-        couple_name: params.coupleName || `Ruang ${user.name}`,
-        relationship_start_date: data.relationship_start_date,
-        next_meet_date: data.next_meet_date,
-        user_city: params.userCity || 'Jakarta',
-        created_at: data.created_at
-      };
-      await supabase.from('profiles').update({ couple_id: data.id }).eq('id', remoteUserId);
-      const updatedUser: UserProfile = { ...user, couple_id: data.id };
-      storage.saveCoupleToDB(remoteCouple);
-      storage.saveUserToDB(updatedUser);
-      storage.setUser(updatedUser);
-      setUserState(updatedUser);
-      storage.setCouple(remoteCouple);
-      setCoupleState(remoteCouple);
-      setPartnerState(null);
+      await supabase.from('profiles').update({ 
+        couple_id: data.id,
+        location_name: params.userCity || 'Jakarta'
+      }).eq('id', remoteUserId);
+
+      await syncRemoteSession(remoteUserId);
       setCurrentView('home');
-      return remoteCouple;
+      return storage.getCouple()!;
     }
 
     const newCouple: Couple = {
@@ -418,7 +545,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       created_at: new Date().toISOString()
     };
 
-    // Save couple & link user
     storage.saveCoupleToDB(newCouple);
     const updatedUser: UserProfile = { ...user, couple_id: newCouple.id };
     storage.saveUserToDB(updatedUser);
@@ -436,79 +562,99 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) throw new Error('Harap masuk terlebih dahulu.');
     const code = inviteCode.trim().toUpperCase();
 
-    if (!code) throw new Error('Silakan masukkan 6 karakter kode undangan.');
-
-    const remoteUserId = await getRemoteUserId();
-    let targetCouple = storage.findCoupleByInviteCode(code);
-
-    if (remoteUserId && remoteUserId === user.id) {
-      const { data, error } = await supabase
-        .from('couples')
-        .select('*')
-        .eq('invite_code', code)
-        .eq('status', 'pending')
-        .maybeSingle();
-
-      if (error) {
-        throw new Error('Room belum bisa dibaca dari server. Pastikan tabel couples Supabase sudah aktif.');
-      }
-      targetCouple = data ? {
-        id: data.id,
-        invite_code: data.invite_code,
-        status: data.status,
-        member_ids: data.member_ids,
-        couple_name: data.couple_name,
-        relationship_start_date: data.relationship_start_date,
-        next_meet_date: data.next_meet_date,
-        user_city: data.user_city,
-        partner_city: data.partner_city,
-        created_at: data.created_at
-      } : null;
+    if (!code || code.length < 4) {
+      throw new Error('Silakan masukkan kode undangan yang valid (contoh: US1234).');
     }
 
+    const remoteUserId = await getRemoteUserId();
+
+    if (remoteUserId && remoteUserId === user.id) {
+      let joinSuccess = false;
+
+      // 1. Try atomic PostgreSQL RPC if created
+      try {
+        const { data: rpcData, error: rpcError } = await supabase.rpc('join_couple_room', {
+          p_invite_code: code,
+          p_city: userCity || user.location_name || 'Bandung'
+        });
+
+        if (!rpcError && rpcData) {
+          joinSuccess = true;
+        }
+      } catch (e) {}
+
+      // 2. Direct query fallback
+      if (!joinSuccess) {
+        const { data: targetCouple, error: findError } = await supabase
+          .from('couples')
+          .select('*')
+          .eq('invite_code', code)
+          .maybeSingle();
+
+        if (findError) {
+          console.error('Find couple error:', findError);
+          throw new Error('Gagal memeriksa kode undangan ke server: ' + findError.message);
+        }
+
+        if (!targetCouple) {
+          throw new Error(`Ruangan dengan kode "${code}" tidak ditemukan. Pastikan kodenya benar.`);
+        }
+
+        if (targetCouple.member_ids?.includes(remoteUserId)) {
+          throw new Error('Kamu sudah bergabung di dalam ruangan ini.');
+        }
+
+        if (targetCouple.member_ids && targetCouple.member_ids.length >= 2) {
+          throw new Error('Ruangan ini sudah penuh (terhubung dengan 2 anggota).');
+        }
+
+        const newMemberIds = [...(targetCouple.member_ids || []), remoteUserId];
+        const partnerCity = userCity || user.location_name || 'Bandung';
+
+        const { data: updatedData, error: updateError } = await supabase
+          .from('couples')
+          .update({ 
+            member_ids: newMemberIds, 
+            status: 'active',
+            partner_city: partnerCity
+          })
+          .eq('id', targetCouple.id)
+          .select()
+          .maybeSingle();
+
+        if (updateError || !updatedData) {
+          console.error('Update couple error:', updateError);
+          throw new Error(updateError?.message || 'Gagal terhubung ke ruangan. Pastikan izin RLS tabel couples sudah diperbarui.');
+        }
+
+        await supabase.from('profiles').update({ 
+          couple_id: targetCouple.id,
+          location_name: partnerCity 
+        }).eq('id', remoteUserId);
+      }
+
+      // Sync complete state (including partner profile!)
+      await syncRemoteSession(remoteUserId);
+      setCurrentView('home');
+      return storage.getCouple()!;
+    }
+
+    // Local demo fallback
+    const targetCouple = storage.findCoupleByInviteCode(code);
     if (!targetCouple) {
-      throw new Error(`Ruangan dengan kode "${code}" tidak ditemukan. Pastikan kodenya benar.`);
+      throw new Error(`Ruangan dengan kode "${code}" tidak ditemukan.`);
     }
 
     if (targetCouple.member_ids.includes(user.id)) {
       throw new Error('Kamu sudah bergabung di dalam ruangan ini.');
     }
 
-    if (targetCouple.member_ids.length >= 2) {
-      throw new Error('Ruangan ini sudah terhubung penuh dengan 2 anggota.');
-    }
-
-    const memberId = remoteUserId || user.id;
-    const newMemberIds = [...targetCouple.member_ids, memberId];
-    const owner = storage.findUserById(targetCouple.member_ids[0]);
-
     const updatedCouple: Couple = {
       ...targetCouple,
-      member_ids: newMemberIds,
+      member_ids: [...targetCouple.member_ids, user.id],
       status: 'active',
-      couple_name: targetCouple.couple_name && !targetCouple.couple_name.startsWith('Ruang ')
-        ? targetCouple.couple_name
-        : `${owner?.name || 'Pasangan'} × ${user.name}`,
-      partner_city: userCity || user.location_name || targetCouple.partner_city || 'Bandung'
+      partner_city: userCity || 'Bandung'
     };
-
-    if (remoteUserId && remoteUserId === user.id) {
-      const { data, error } = await supabase
-        .from('couples')
-        .update({ 
-          member_ids: newMemberIds, 
-          status: 'active',
-          partner_city: updatedCouple.partner_city
-        })
-        .eq('id', targetCouple.id)
-        .eq('status', 'pending')
-        .select()
-        .maybeSingle();
-      if (error || !data) {
-        throw new Error('Room gagal dihubungkan. Kode mungkin sudah dipakai oleh akun lain.');
-      }
-      await supabase.from('profiles').update({ couple_id: targetCouple.id }).eq('id', remoteUserId);
-    }
 
     storage.saveCoupleToDB(updatedCouple);
     const updatedUser: UserProfile = { ...user, couple_id: updatedCouple.id };
@@ -517,13 +663,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUserState(updatedUser);
     setCoupleState(updatedCouple);
-    setPartnerState(owner || null);
+    setPartnerState(storage.findUserById(targetCouple.member_ids[0]));
 
     setCurrentView('home');
     return updatedCouple;
   };
 
-  // Step 6: Fully Synchronized Leave Room
   const leaveCoupleRoom = async () => {
     if (!user) return;
     const currentCoupleId = user.couple_id;
@@ -540,17 +685,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const remainingMembers = (remoteCouple?.member_ids || []).filter((id: string) => id !== currentUserId);
 
         if (remainingMembers.length === 0) {
-          // Delete couple room if empty
           await supabase.from('couples').delete().eq('id', currentCoupleId);
         } else {
-          // Reset status to pending for the partner
           await supabase
             .from('couples')
             .update({ member_ids: remainingMembers, status: 'pending' })
             .eq('id', currentCoupleId);
         }
 
-        // Clear couple_id in profiles table
         await supabase
           .from('profiles')
           .update({ couple_id: null })
@@ -631,7 +773,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Step 3: Realtime Heart Pulse via Supabase Realtime Broadcast & History Storage
   const sendHeartPulse = async (message = 'Aku kangen kamu saat ini 🤍') => {
     const pulsePayload = {
       from: user?.name || 'Pasanganmu',
@@ -656,7 +797,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         roomService.recordHeartPulse(couple.id, user.id, message).catch(() => null);
       }
     } else {
-      // Local fallback for demo
       setPulseTriggered(pulsePayload);
     }
   };

@@ -186,16 +186,67 @@ CREATE POLICY "Users can create profile" ON public.profiles
 
 -- Couples Policies
 CREATE POLICY "Users can view couples" ON public.couples
-  FOR SELECT USING (auth.uid() = ANY(member_ids) OR status = 'pending');
+  FOR SELECT USING (auth.role() = 'authenticated');
 
 CREATE POLICY "Authenticated can create couple" ON public.couples
   FOR INSERT WITH CHECK (auth.uid() = member_ids[1]);
 
 CREATE POLICY "Users can update couples" ON public.couples
-  FOR UPDATE USING (auth.uid() = ANY(member_ids) OR (status = 'pending' AND array_length(member_ids, 1) = 1));
+  FOR UPDATE USING (
+    auth.uid() = ANY(member_ids) 
+    OR status = 'pending'
+  );
 
 CREATE POLICY "Users can delete couples" ON public.couples
   FOR DELETE USING (auth.uid() = ANY(member_ids));
+
+-- RPC Helper for Atomic Room Join
+CREATE OR REPLACE FUNCTION public.join_couple_room(p_invite_code TEXT, p_city TEXT DEFAULT NULL)
+RETURNS jsonb AS $$
+DECLARE
+  v_user_id UUID;
+  v_couple RECORD;
+  v_updated_couple RECORD;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT * INTO v_couple 
+  FROM public.couples 
+  WHERE UPPER(invite_code) = UPPER(TRIM(p_invite_code))
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Ruangan dengan kode % tidak ditemukan', p_invite_code;
+  END IF;
+
+  IF v_user_id = ANY(v_couple.member_ids) THEN
+    RAISE EXCEPTION 'Kamu sudah bergabung di dalam ruangan ini';
+  END IF;
+
+  IF array_length(v_couple.member_ids, 1) >= 2 THEN
+    RAISE EXCEPTION 'Ruangan ini sudah penuh (terhubung dengan 2 anggota)';
+  END IF;
+
+  UPDATE public.couples
+  SET 
+    member_ids = array_append(v_couple.member_ids, v_user_id),
+    status = 'active',
+    partner_city = COALESCE(p_city, partner_city, 'Bandung')
+  WHERE id = v_couple.id
+  RETURNING * INTO v_updated_couple;
+
+  UPDATE public.profiles
+  SET 
+    couple_id = v_couple.id,
+    location_name = COALESCE(p_city, location_name)
+  WHERE id = v_user_id;
+
+  RETURN to_jsonb(v_updated_couple);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Room Data Policies: Strictly limited to room members
 CREATE POLICY "Couples heart notes policy" ON public.heart_notes
