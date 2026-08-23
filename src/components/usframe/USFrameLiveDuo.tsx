@@ -595,7 +595,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
           <div className="relative z-10 flex justify-between items-end">
             <span className="text-[9px] sm:text-[11px] font-medium text-white/80 px-1.5 sm:px-2.5 py-0.5 rounded-md sm:rounded-lg bg-black/40 backdrop-blur-xs truncate max-w-full">
-              📍 {couple?.city || user?.location_name || 'Studio Berdua'}
+              📍 {user?.location_name || (couple?.member_ids?.[0] === user?.id ? couple?.user_city : couple?.partner_city) || 'Studio USFRAME'}
             </span>
           </div>
         </div>
@@ -653,7 +653,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
           <div className="relative z-10 flex justify-between items-end">
             <span className="text-[9px] sm:text-[11px] font-medium text-white/80 px-1.5 sm:px-2.5 py-0.5 rounded-md sm:rounded-lg bg-black/40 backdrop-blur-xs truncate max-w-full">
-              📍 {couple?.city || partner?.location_name || 'Studio Berdua'}
+              📍 {partner?.location_name || (couple?.member_ids?.[0] === user?.id ? couple?.partner_city : couple?.user_city) || 'Studio Pasangan'}
             </span>
           </div>
         </div>

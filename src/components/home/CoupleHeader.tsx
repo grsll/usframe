@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { calculateRelationshipDuration, generateInitialsAvatar } from '../../lib/utils';
+import { calculateRelationshipDuration, generateInitialsAvatar, formatCoupleLocation } from '../../lib/utils';
 import { Sparkles, Heart, MapPin, Smile, UserPlus, Copy, Check, Share2 } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import { CoupleShareModal } from '../settings/CoupleShareModal';
@@ -37,42 +37,46 @@ export const CoupleHeader: React.FC = () => {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  const isFirstMember = !couple?.member_ids || couple.member_ids.length === 0 || couple.member_ids[0] === user?.id;
+  const myCity = user?.location_name || (isFirstMember ? couple?.user_city : couple?.partner_city);
+  const partnerCity = partner?.location_name || (isFirstMember ? couple?.partner_city : couple?.user_city);
+  const displayLocation = formatCoupleLocation(myCity, partnerCity);
+
   return (
     <section className="relative overflow-hidden rounded-3xl bg-surface border border-border p-4 sm:p-8 shadow-soft grain-overlay space-y-4">
       <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6">
         
-        {/* Couple Avatars & Editorial Names */}
-        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left w-full sm:w-auto">
+        {/* Profile Avatars & Title Info */}
+        <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left w-full md:w-auto">
           
-          {/* Linked Circular Avatars */}
-          <div className="relative flex items-center shrink-0">
+          {/* Linked Avatars */}
+          <div className="relative flex items-center -space-x-3 sm:-space-x-4 shrink-0">
             {/* User Avatar */}
             <div className="relative group">
               <img
                 src={userAvatar}
                 alt={user?.name || 'Kamu'}
-                className="w-16 h-16 sm:w-24 sm:h-24 rounded-full object-cover border-3 sm:border-4 border-surface shadow-medium ring-2 ring-terracotta-500/30 bg-surface"
+                className="w-16 h-16 sm:w-24 sm:h-24 rounded-full object-cover border-3 sm:border-4 border-surface shadow-medium ring-2 ring-terracotta-500/20 bg-surface"
               />
               <span className="absolute bottom-0 right-0 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] sm:text-xs shadow-sm">
-                {user?.current_mood || '😊'}
+                {user?.current_mood || '🥰'}
               </span>
             </div>
 
-            {/* Connecting Heart Emblem */}
-            <div className="w-8 h-8 sm:w-10 sm:h-10 -mx-2.5 sm:-mx-3 z-10 rounded-full bg-terracotta-500 text-white flex items-center justify-center shadow-md border-2 border-surface animate-pulse-subtle">
-              <Heart className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+            {/* Connecting Heart Icon */}
+            <div className="z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-surface border border-border shadow-xs flex items-center justify-center text-terracotta-500">
+              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
             </div>
 
-            {/* Partner Avatar or Invite Placeholder */}
+            {/* Partner Avatar or Pending Invite */}
             {isPending ? (
               <button
-                type="button"
                 onClick={() => setIsShareModalOpen(true)}
-                className="relative group w-16 h-16 sm:w-24 sm:h-24 rounded-full border-2 sm:border-3 border-dashed border-terracotta-400 dark:border-terracotta-600 bg-terracotta-50/50 dark:bg-terracotta-950/40 flex flex-col items-center justify-center text-terracotta-600 dark:text-terracotta-300 hover:bg-terracotta-100 hover:scale-105 transition-all cursor-pointer shadow-sm"
-                title="Klik untuk mengundang pasanganmu"
+                className="w-16 h-16 sm:w-24 sm:h-24 rounded-full border-2 border-dashed border-terracotta-300 dark:border-terracotta-700/60 bg-terracotta-50/50 dark:bg-terracotta-950/30 flex flex-col items-center justify-center text-terracotta-600 dark:text-terracotta-400 hover:border-terracotta-500 transition-all cursor-pointer group"
+                title="Ajak Pasangan Terhubung"
               >
-                <UserPlus className="w-6 h-6 sm:w-8 sm:h-8" />
-                <span className="text-[9px] sm:text-[10px] font-semibold mt-0.5">Undang</span>
+                <UserPlus className="w-5 h-5 sm:w-7 sm:h-7 group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] sm:text-[10px] font-medium mt-0.5">Ajak</span>
               </button>
             ) : (
               <div className="relative group">
@@ -103,7 +107,7 @@ export const CoupleHeader: React.FC = () => {
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-foreground-muted">
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-terracotta-500 shrink-0" />
-                {couple?.city || couple?.user_city || 'Pilih kota'}
+                {displayLocation}
               </span>
               <span>•</span>
               <span>Sejak {new Date(couple?.relationship_start_date || new Date().toISOString()).toLocaleDateString('id-ID', { month: 'long', day: 'numeric', year: 'numeric' })}</span>

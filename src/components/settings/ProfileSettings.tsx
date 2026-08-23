@@ -11,8 +11,12 @@ export const ProfileSettings: React.FC = () => {
   const { user, partner, couple, updateUser, updateCoupleSettings, leaveCoupleRoom, setCurrentView } = useAuth();
   const { success, error } = useToast();
 
+  const isFirstMember = !couple?.member_ids || couple.member_ids.length === 0 || couple.member_ids[0] === user?.id;
+  const myInitialCity = user?.location_name || (isFirstMember ? couple?.user_city : couple?.partner_city) || '';
+  const partnerCity = partner?.location_name || (isFirstMember ? couple?.partner_city : couple?.user_city) || '';
+
   const [name, setName] = useState(user?.name || '');
-  const [roomCity, setRoomCity] = useState(couple?.city || couple?.user_city || '');
+  const [userCity, setUserCity] = useState(myInitialCity);
   const [startDate, setStartDate] = useState(couple?.relationship_start_date || new Date().toISOString().split('T')[0]);
   const [avatar, setAvatar] = useState(user?.avatar || '');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -52,16 +56,14 @@ export const ProfileSettings: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    updateUser({ name, avatar });
+    updateUser({ name, avatar, location_name: userCity.trim() });
     if (couple) {
       updateCoupleSettings({
-        city: roomCity,
-        user_city: roomCity,
-        partner_city: roomCity,
+        user_city: userCity.trim(),
         relationship_start_date: startDate
       });
     }
-    success('Pengaturan profil dan ruangan berhasil diperbarui! ✨');
+    success('Pengaturan profil dan kota domisili berhasil diperbarui! ✨');
   };
 
   const handleLeaveRoom = () => {
@@ -184,11 +186,13 @@ export const ProfileSettings: React.FC = () => {
         {/* City & Relationship Date */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
           <Input
-            label="Kota / Lokasi Ruang Bersama"
-            value={roomCity}
-            onChange={(e) => setRoomCity(e.target.value)}
-            placeholder="contoh: Depok, Malang, Yogyakarta"
-            helperText="Data kota ini tersinkronisasi realtime untuk kedua pasangan di dalam ruangan."
+            label="Kota Domisili Kamu"
+            value={userCity}
+            onChange={(e) => setUserCity(e.target.value)}
+            placeholder="contoh: Malang, Depok, Bandung"
+            helperText={partnerCity 
+              ? `Kota pasanganmu (${partner?.name || 'Pasangan'}): "${partnerCity}". Beranda akan menampilkan "${userCity.trim() || 'Kota Kamu'} × ${partnerCity}".` 
+              : 'Kota pasanganmu tidak akan tertimpa dan akan tampil berdampingan di beranda.'}
           />
 
           <Input

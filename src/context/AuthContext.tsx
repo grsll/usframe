@@ -260,7 +260,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { user: currentUser, partner: null, couple: null };
       }
 
-      const sharedCity = coupleRow.city || coupleRow.user_city || coupleRow.partner_city || undefined;
+      const userCity = coupleRow.user_city || currentUser.location_name || undefined;
+      const partnerCity = coupleRow.partner_city || undefined;
 
       const currentCouple: Couple = {
         id: coupleRow.id,
@@ -270,9 +271,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         couple_name: coupleRow.couple_name,
         relationship_start_date: coupleRow.relationship_start_date,
         next_meet_date: coupleRow.next_meet_date,
-        city: sharedCity,
-        user_city: sharedCity,
-        partner_city: sharedCity,
+        user_city: userCity,
+        partner_city: partnerCity,
         created_at: coupleRow.created_at
       };
 
@@ -1005,26 +1005,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (isUuid(user.id)) {
       try {
+        let photoUrl = updated.avatar;
+        if (photoUrl && (photoUrl.startsWith('data:') || photoUrl.startsWith('blob:'))) {
+          photoUrl = await (await import('../lib/cloudStorage')).cloudStorage.uploadAvatarImage(photoUrl, user.id);
+          updated.avatar = photoUrl;
+          setUserState(updated);
+          storage.saveUserToDB(updated);
+        }
+
         await supabase.from('profiles').update({
           name: updated.name,
-          photo_url: updated.avatar,
+          photo_url: photoUrl,
           current_mood: updated.current_mood,
           mood_label: updated.mood_label,
           status_activity: updated.status_activity,
           location_name: updated.location_name
         }).eq('id', user.id);
 
-        if (couple?.id && (updates.current_mood || updates.mood_label)) {
+        if (couple?.id) {
+          // Sync user's personal city to the couple room without touching partner's city
+          if (updates.location_name !== undefined) {
+            const isFirstMember = !couple.member_ids || couple.member_ids.length === 0 || couple.member_ids[0] === user.id;
+            const cityField = isFirstMember ? 'user_city' : 'partner_city';
+
+            await supabase.from('couples').update({
+              [cityField]: updates.location_name || null
+            }).eq('id', couple.id);
+
+            setCoupleState(prev => prev ? {
+              ...prev,
+              [cityField]: updates.location_name || undefined
+            } : null);
+          }
+
           const channel = supabase.channel(`couple_room_${couple.id}`);
-          channel.send({
-            type: 'broadcast',
-            event: 'mood_update',
-            payload: {
-              senderId: user.id,
-              mood: updated.current_mood,
-              label: updated.mood_label
-            }
-          }).catch(() => null);
+          if (updates.current_mood || updates.mood_label) {
+            channel.send({
+              type: 'broadcast',
+              event: 'mood_update',
+              payload: {
+                senderId: user.id,
+                mood: updated.current_mood,
+                label: updated.mood_label
+              }
+            }).catch(() => null);
+          }
+          if (updates.location_name !== undefined) {
+            channel.send({
+              type: 'broadcast',
+              event: 'room_settings_updated',
+              payload: { senderId: user.id }
+            }).catch(() => null);
+          }
         }
       } catch (err) {
         console.warn('Error syncing profile update to Supabase:', err);
@@ -1041,30 +1073,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateCoupleSettings = async (updates: Partial<Couple>) => {
     if (!couple) return;
-    const targetCity = updates.city !== undefined ? updates.city : (updates.user_city !== undefined ? updates.user_city : couple.city);
+
+    const isFirstMember = !couple.member_ids || couple.member_ids.length === 0 || couple.member_ids[0] === user?.id;
+
+    let updatedUserCity = couple.user_city;
+    let updatedPartnerCity = couple.partner_city;
+
+    if (updates.user_city !== undefined) {
+      if (isFirstMember) {
+        updatedUserCity = updates.user_city;
+      } else {
+        updatedPartnerCity = updates.user_city;
+      }
+    }
+
     const updated: Couple = { 
       ...couple, 
       ...updates,
-      city: targetCity,
-      user_city: targetCity,
-      partner_city: targetCity
+      user_city: updatedUserCity,
+      partner_city: updatedPartnerCity
     };
     setCoupleState(updated);
     storage.saveCoupleToDB(updated);
 
     if (isUuid(couple.id)) {
       try {
-        await supabase.from('couples').update({
-          relationship_start_date: updated.relationship_start_date,
-          user_city: targetCity || null,
-          partner_city: targetCity || null
-        }).eq('id', couple.id);
+        const updatePayload: any = {};
+        if (updated.relationship_start_date) {
+          updatePayload.relationship_start_date = updated.relationship_start_date;
+        }
+        if (updatedUserCity !== undefined) {
+          updatePayload.user_city = updatedUserCity || null;
+        }
+        if (updatedPartnerCity !== undefined) {
+          updatePayload.partner_city = updatedPartnerCity || null;
+        }
+
+        await supabase.from('couples').update(updatePayload).eq('id', couple.id);
 
         const channel = supabase.channel(`couple_room_${couple.id}`);
         channel.send({
           type: 'broadcast',
           event: 'room_settings_updated',
-          payload: { senderId: user?.id, updates: { ...updates, city: targetCity } }
+          payload: { senderId: user?.id, updates }
         }).catch(() => null);
       } catch (err) {
         console.warn('Error syncing couple settings to Supabase:', err);

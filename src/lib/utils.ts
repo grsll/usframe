@@ -253,3 +253,24 @@ export function generateUuid(): string {
   });
 }
 
+/**
+ * Formats dual user cities into the display banner format: "CityA × CityB".
+ * If only one is provided, returns that city. If both are identical, returns single city.
+ */
+export function formatCoupleLocation(cityA?: string | null, cityB?: string | null): string {
+  const cleanA = cityA?.trim();
+  const cleanB = cityB?.trim();
+
+  if (cleanA && cleanB) {
+    if (cleanA.toLowerCase() === cleanB.toLowerCase()) {
+      return cleanA;
+    }
+    return `${cleanA} × ${cleanB}`;
+  }
+
+  if (cleanA) return cleanA;
+  if (cleanB) return cleanB;
+  return 'Pilih kota';
+}
+
+

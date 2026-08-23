@@ -4,7 +4,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { Sun, Moon, Laptop, Heart, Globe, UserPlus, MessageCircleHeart } from 'lucide-react';
 import { HeartPulseModal } from '../home/HeartPulseModal';
-import { generateInitialsAvatar } from '../../lib/utils';
+import { generateInitialsAvatar, formatCoupleLocation } from '../../lib/utils';
 
 export const Header: React.FC = () => {
   const { user, partner, couple, setCurrentView } = useAuth();
@@ -14,6 +14,11 @@ export const Header: React.FC = () => {
   const isPending = !partner || couple?.status === 'pending';
   const userAvatar = user?.avatar || generateInitialsAvatar(user?.name || 'Kamu');
   const partnerAvatar = partner?.avatar || (partner?.name ? generateInitialsAvatar(partner.name) : '');
+
+  const isFirstMember = !couple?.member_ids || couple.member_ids.length === 0 || couple.member_ids[0] === user?.id;
+  const myCity = user?.location_name || (isFirstMember ? couple?.user_city : couple?.partner_city);
+  const partnerCity = partner?.location_name || (isFirstMember ? couple?.partner_city : couple?.user_city);
+  const displayLocation = formatCoupleLocation(myCity, partnerCity);
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -45,11 +50,11 @@ export const Header: React.FC = () => {
             </div>
           </button>
 
-          {/* Shared Room City badge */}
+          {/* Dual User City badge */}
           {couple && (
             <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-subtle border border-border text-[11px] text-foreground-muted">
               <Globe className="w-3.5 h-3.5 text-terracotta-500" />
-              <span>{couple.city || couple.user_city || 'Pilih kota'}</span>
+              <span>{displayLocation}</span>
             </div>
           )}
         </div>
