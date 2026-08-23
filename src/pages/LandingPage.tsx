@@ -4,7 +4,7 @@ import { Camera, Sparkles, Shield, ArrowRight, Globe, Heart, MessageCircle, Cale
 import { Button } from '../components/ui/Button';
 
 export const LandingPage: React.FC = () => {
-  const { setCurrentView, loginDemo } = useAuth();
+  const { setCurrentView, loginDemo, user, couple, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-terracotta-200">
@@ -12,31 +12,74 @@ export const LandingPage: React.FC = () => {
       {/* Top Editorial Nav */}
       <header className="sticky top-0 z-30 w-full bg-background/80 backdrop-blur-md border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <button 
+            onClick={() => couple ? setCurrentView('home') : setCurrentView('landing')}
+            className="flex items-center gap-3 cursor-pointer text-left"
+          >
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-terracotta-500 text-white flex items-center justify-center font-serif text-lg sm:text-xl font-bold shadow-soft">
               US
             </div>
             <span className="font-serif text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               USFRAME
             </span>
-          </div>
+          </button>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              onClick={() => setCurrentView('auth')}
-              variant="ghost"
-              size="sm"
-            >
-              Masuk
-            </Button>
-            <Button
-              onClick={() => setCurrentView('auth')}
-              variant="primary"
-              size="sm"
-              className="shadow-sm"
-            >
-              Buat Ruang Kita
-            </Button>
+            {couple ? (
+              <>
+                <Button
+                  onClick={() => setCurrentView('settings')}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Pengaturan
+                </Button>
+                <Button
+                  onClick={() => setCurrentView('home')}
+                  variant="primary"
+                  size="sm"
+                  className="shadow-sm"
+                >
+                  Buka Ruang Kita →
+                </Button>
+              </>
+            ) : user ? (
+              <>
+                <Button
+                  onClick={logout}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Keluar
+                </Button>
+                <Button
+                  onClick={() => setCurrentView('onboarding')}
+                  variant="primary"
+                  size="sm"
+                  className="shadow-sm"
+                >
+                  Hubungkan Ruang →
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  onClick={() => setCurrentView('auth')}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Masuk
+                </Button>
+                <Button
+                  onClick={() => setCurrentView('auth')}
+                  variant="primary"
+                  size="sm"
+                  className="shadow-sm"
+                >
+                  Buat Ruang Kita
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -59,15 +102,37 @@ export const LandingPage: React.FC = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5 pt-2">
-            <Button
-              onClick={() => setCurrentView('auth')}
-              variant="primary"
-              size="lg"
-              className="w-full sm:w-auto px-8 py-3.5 sm:py-4 text-base font-medium shadow-medium"
-            >
-              <span>Mulai Ruang Berdua</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
+            {couple ? (
+              <Button
+                onClick={() => setCurrentView('home')}
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 text-base font-medium shadow-medium"
+              >
+                <span>Buka Beranda Ruang Kita</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : user ? (
+              <Button
+                onClick={() => setCurrentView('onboarding')}
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 text-base font-medium shadow-medium"
+              >
+                <span>Hubungkan Ruang Pasangan</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setCurrentView('auth')}
+                variant="primary"
+                size="lg"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-4 text-base font-medium shadow-medium"
+              >
+                <span>Mulai Ruang Berdua</span>
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            )}
 
             <Button
               onClick={() => loginDemo()}

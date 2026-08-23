@@ -21,9 +21,19 @@ CREATE TABLE IF NOT EXISTS public.couples (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS next_meet_date DATE;
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS user_city TEXT;
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS partner_city TEXT;
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0;
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS garden_level INTEGER DEFAULT 1;
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS pet_name TEXT DEFAULT 'Mochi';
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS pet_type TEXT DEFAULT 'cat';
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS pet_hunger INTEGER DEFAULT 80;
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS pet_happiness INTEGER DEFAULT 80;
+
 -- 2. Tabel Profiles (User)
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   photo_url TEXT,
@@ -35,6 +45,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   last_active TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS location_name TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS current_mood TEXT DEFAULT '🥰';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS mood_label TEXT DEFAULT 'Siap melanjutkan kisah kita';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status_activity TEXT DEFAULT 'Santai di rumah';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS last_active TIMESTAMPTZ DEFAULT now();
 
 -- 3. Heart Room: Mood, Unek-Unek & I Need to Talk & Heart Pulse History
 CREATE TABLE IF NOT EXISTS public.heart_notes (
@@ -161,10 +177,19 @@ DROP POLICY IF EXISTS "Users can view relevant profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users can view profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can create profile" ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles select" ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles insert" ON public.profiles;
+DROP POLICY IF EXISTS "Public profiles update" ON public.profiles;
+
 DROP POLICY IF EXISTS "Authenticated can create couple" ON public.couples;
 DROP POLICY IF EXISTS "Users can view couples" ON public.couples;
 DROP POLICY IF EXISTS "Users can update couples" ON public.couples;
 DROP POLICY IF EXISTS "Users can delete couples" ON public.couples;
+DROP POLICY IF EXISTS "Public couples select" ON public.couples;
+DROP POLICY IF EXISTS "Public couples insert" ON public.couples;
+DROP POLICY IF EXISTS "Public couples update" ON public.couples;
+DROP POLICY IF EXISTS "Public couples delete" ON public.couples;
+
 DROP POLICY IF EXISTS "Couples heart notes policy" ON public.heart_notes;
 DROP POLICY IF EXISTS "Couples peace policy" ON public.peace_conflicts;
 DROP POLICY IF EXISTS "Couples letters policy" ON public.love_letters;
@@ -174,60 +199,64 @@ DROP POLICY IF EXISTS "Couples countdowns policy" ON public.countdowns;
 DROP POLICY IF EXISTS "Couples bucket list policy" ON public.bucket_list_items;
 DROP POLICY IF EXISTS "Couples daily questions policy" ON public.daily_questions;
 
--- Profiles Policies
-CREATE POLICY "Users can view profiles" ON public.profiles
-  FOR SELECT USING (auth.role() = 'authenticated');
+-- Profiles Policies (Accessible to authenticated & anon for pairing)
+CREATE POLICY "Public profiles select" ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Public profiles insert" ON public.profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public profiles update" ON public.profiles FOR UPDATE USING (true);
 
-CREATE POLICY "Users can update own profile" ON public.profiles
-  FOR UPDATE USING (auth.uid() = id);
+-- Couples Policies (Accessible so invite codes can be found and joined across devices)
+CREATE POLICY "Public couples select" ON public.couples FOR SELECT USING (true);
+CREATE POLICY "Public couples insert" ON public.couples FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public couples update" ON public.couples FOR UPDATE USING (true);
+CREATE POLICY "Public couples delete" ON public.couples FOR DELETE USING (true);
 
-CREATE POLICY "Users can create profile" ON public.profiles
-  FOR INSERT WITH CHECK (auth.uid() = id);
+-- Room Collaborative Data Policies
+CREATE POLICY "Public heart notes policy" ON public.heart_notes FOR ALL USING (true);
+CREATE POLICY "Public peace policy" ON public.peace_conflicts FOR ALL USING (true);
+CREATE POLICY "Public letters policy" ON public.love_letters FOR ALL USING (true);
+CREATE POLICY "Public memories policy" ON public.memories FOR ALL USING (true);
+CREATE POLICY "Public milestones policy" ON public.milestones FOR ALL USING (true);
+CREATE POLICY "Public countdowns policy" ON public.countdowns FOR ALL USING (true);
+CREATE POLICY "Public bucket list policy" ON public.bucket_list_items FOR ALL USING (true);
+CREATE POLICY "Public daily questions policy" ON public.daily_questions FOR ALL USING (true);
 
--- Couples Policies
-CREATE POLICY "Users can view couples" ON public.couples
-  FOR SELECT USING (auth.role() = 'authenticated');
+-- RPC Helper for Atomic Room Join (Works with both authenticated session and explicit user UUID)
+DROP FUNCTION IF EXISTS public.join_couple_room(TEXT);
+DROP FUNCTION IF EXISTS public.join_couple_room(TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.join_couple_room(TEXT, TEXT, UUID);
 
-CREATE POLICY "Authenticated can create couple" ON public.couples
-  FOR INSERT WITH CHECK (auth.uid() = member_ids[1]);
-
-CREATE POLICY "Users can update couples" ON public.couples
-  FOR UPDATE USING (
-    auth.uid() = ANY(member_ids) 
-    OR status = 'pending'
-  );
-
-CREATE POLICY "Users can delete couples" ON public.couples
-  FOR DELETE USING (auth.uid() = ANY(member_ids));
-
--- RPC Helper for Atomic Room Join
-CREATE OR REPLACE FUNCTION public.join_couple_room(p_invite_code TEXT, p_city TEXT DEFAULT NULL)
+CREATE OR REPLACE FUNCTION public.join_couple_room(
+  p_invite_code TEXT, 
+  p_city TEXT DEFAULT NULL,
+  p_user_id UUID DEFAULT NULL
+)
 RETURNS jsonb AS $$
 DECLARE
   v_user_id UUID;
   v_couple RECORD;
   v_updated_couple RECORD;
 BEGIN
-  v_user_id := auth.uid();
+  v_user_id := COALESCE(auth.uid(), p_user_id);
   IF v_user_id IS NULL THEN
-    RAISE EXCEPTION 'Not authenticated';
+    RAISE EXCEPTION 'ID Pengguna tidak ditemukan untuk bergabung ke ruangan.';
   END IF;
 
   SELECT * INTO v_couple 
   FROM public.couples 
-  WHERE UPPER(invite_code) = UPPER(TRIM(p_invite_code))
+  WHERE UPPER(TRIM(invite_code)) = UPPER(TRIM(p_invite_code))
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Ruangan dengan kode % tidak ditemukan', p_invite_code;
+    RAISE EXCEPTION 'Ruangan dengan kode "%" tidak ditemukan. Pastikan kodenya benar.', p_invite_code;
   END IF;
 
   IF v_user_id = ANY(v_couple.member_ids) THEN
-    RAISE EXCEPTION 'Kamu sudah bergabung di dalam ruangan ini';
+    -- Already a member, return existing couple
+    RETURN to_jsonb(v_couple);
   END IF;
 
   IF array_length(v_couple.member_ids, 1) >= 2 THEN
-    RAISE EXCEPTION 'Ruangan ini sudah penuh (terhubung dengan 2 anggota)';
+    RAISE EXCEPTION 'Ruangan ini sudah penuh (terhubung dengan 2 anggota).';
   END IF;
 
   UPDATE public.couples
@@ -248,78 +277,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Room Data Policies: Strictly limited to room members
-CREATE POLICY "Couples heart notes policy" ON public.heart_notes
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = heart_notes.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
-
-CREATE POLICY "Couples peace policy" ON public.peace_conflicts
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = peace_conflicts.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
-
-CREATE POLICY "Couples letters policy" ON public.love_letters
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = love_letters.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
-
-CREATE POLICY "Couples memories policy" ON public.memories
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = memories.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
-
-CREATE POLICY "Couples milestones policy" ON public.milestones
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = milestones.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
-
-CREATE POLICY "Couples countdowns policy" ON public.countdowns
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = countdowns.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
-
-CREATE POLICY "Couples bucket list policy" ON public.bucket_list_items
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = bucket_list_items.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
-
-CREATE POLICY "Couples daily questions policy" ON public.daily_questions
-  FOR ALL USING (
-    auth.role() = 'authenticated' AND EXISTS (
-      SELECT 1 FROM public.couples
-      WHERE public.couples.id = daily_questions.couple_id
-      AND auth.uid() = ANY(public.couples.member_ids)
-    )
-  );
+GRANT EXECUTE ON FUNCTION public.join_couple_room(TEXT, TEXT, UUID) TO anon, authenticated, service_role;
 
 -- User Registration Trigger
 CREATE OR REPLACE FUNCTION public.handle_new_user()

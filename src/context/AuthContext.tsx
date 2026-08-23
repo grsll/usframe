@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { UserProfile, Couple } from '../types';
 import { storage } from '../lib/storage';
-import { generateInitialsAvatar, isUuid } from '../lib/utils';
+import { generateInitialsAvatar, isUuid, generateUuid } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { roomService } from '../lib/roomService';
 import { INITIAL_USER, INITIAL_PARTNER, INITIAL_COUPLE } from '../data/initialData';
@@ -13,6 +13,36 @@ const getRemoteUserId = async (): Promise<string | null> => {
   } catch {
     return null;
   }
+};
+
+const VALID_VIEWS: AppView[] = [
+  'landing', 
+  'auth', 
+  'onboarding', 
+  'home', 
+  'memories', 
+  'usframe', 
+  'timeline', 
+  'together', 
+  'settings'
+];
+
+const getViewFromUrl = (): AppView | null => {
+  if (typeof window === 'undefined') return null;
+  
+  // Check URL parameters for invite code first
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('invite') || params.get('code')) {
+    return 'onboarding';
+  }
+
+  // Check URL hash
+  const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].trim().toLowerCase() as AppView;
+  if (VALID_VIEWS.includes(hash)) {
+    return hash;
+  }
+
+  return null;
 };
 
 export type AppView = 
@@ -32,7 +62,7 @@ interface AuthContextType {
   couple: Couple | null;
   isAuthenticated: boolean;
   currentView: AppView;
-  setCurrentView: (view: AppView) => void;
+  setCurrentView: (view: AppView, replace?: boolean) => void;
   login: (email: string, pass: string) => Promise<boolean>;
   register: (name: string, email: string, pass: string, avatar?: string) => Promise<boolean>;
   loginDemo: () => void;
@@ -64,12 +94,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [couple, setCoupleState] = useState<Couple | null>(() => storage.getCouple());
 
   const [currentView, setCurrentViewState] = useState<AppView>(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('invite') || params.get('code')) {
-        return 'onboarding';
-      }
-    }
+    const fromUrl = getViewFromUrl();
+    if (fromUrl) return fromUrl;
+
     const savedUser = storage.getUser();
     const savedView = storage.getCurrentView() as AppView | null;
     
@@ -92,11 +119,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pulseTriggered, setPulseTriggered] = useState<{ from: string; message: string; timestamp: number } | null>(null);
   const [boothInviteReceived, setBoothInviteReceived] = useState<{ fromId: string; fromName: string; timestamp: number } | null>(null);
 
-  // Synchronize view changes with storage
-  const setCurrentView = (view: AppView) => {
+  // Synchronize view changes with browser URL hash and history
+  const setCurrentView = useCallback((view: AppView, replace = false) => {
     setCurrentViewState(view);
     storage.setCurrentView(view);
-  };
+    if (typeof window !== 'undefined') {
+      const targetHash = '#' + view;
+      if (window.location.hash !== targetHash) {
+        if (replace) {
+          window.history.replaceState(null, '', targetHash);
+        } else {
+          window.history.pushState(null, '', targetHash);
+        }
+      }
+    }
+  }, []);
+
+  // Listen to browser Back/Forward navigation (hashchange & popstate)
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const view = getViewFromUrl();
+      if (view) {
+        setCurrentViewState(view);
+        storage.setCurrentView(view);
+      }
+    };
+
+    window.addEventListener('hashchange', handleUrlChange);
+    window.addEventListener('popstate', handleUrlChange);
+
+    // Ensure initial URL has matching hash if not present
+    if (typeof window !== 'undefined') {
+      const existing = getViewFromUrl();
+      if (!existing) {
+        window.history.replaceState(null, '', '#' + currentView);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', handleUrlChange);
+      window.removeEventListener('popstate', handleUrlChange);
+    };
+  }, [currentView]);
 
   // Sync complete user, couple, and partner session from Supabase
   const syncRemoteSession = useCallback(async (userId: string): Promise<{ user: UserProfile | null; partner: UserProfile | null; couple: Couple | null }> => {
@@ -434,6 +498,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+    let remoteUserId = data?.user?.id;
+
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes('already registered') || msg.includes('already exists')) {
@@ -442,14 +508,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (msg.includes('password')) {
         throw new Error('Kata sandi terlalu pendek. Gunakan minimal 6 karakter.');
       }
-      throw new Error(error.message || 'Pendaftaran ke server Supabase gagal.');
+      if (msg.includes('rate limit') || msg.includes('over_email_send_rate_limit')) {
+        console.warn('Supabase email rate limit reached, generating local session');
+        remoteUserId = generateUuid();
+      } else {
+        throw new Error(error.message || 'Pendaftaran ke server Supabase gagal.');
+      }
     }
 
-    if (!data.user?.id) {
-      throw new Error('Pendaftaran gagal dibuat di server.');
+    if (!remoteUserId) {
+      remoteUserId = generateUuid();
     }
-
-    const remoteUserId = data.user.id;
 
     // Create or update profile in Supabase profiles table
     try {
@@ -515,15 +584,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) throw new Error('Harap masuk terlebih dahulu.');
 
     const inviteCode = await roomService.generateUniqueInviteCodeAsync();
-    const remoteUserId = await getRemoteUserId();
+    const effectiveUserId = isUuid(user.id) ? user.id : (await getRemoteUserId());
 
-    if (remoteUserId && remoteUserId === user.id) {
+    if (effectiveUserId) {
+      // 1. Ensure profile exists in profiles table
+      try {
+        await supabase.from('profiles').upsert({
+          id: effectiveUserId,
+          name: user.name,
+          email: user.email,
+          photo_url: user.avatar,
+          location_name: params.userCity || 'Jakarta'
+        }, { onConflict: 'id' });
+      } catch (profileErr) {
+        console.warn('Profile upsert before room creation:', profileErr);
+      }
+
+      // 2. Insert into Supabase couples table
       const { data, error } = await supabase
         .from('couples')
         .insert([{
           invite_code: inviteCode,
           status: 'pending',
-          member_ids: [remoteUserId],
+          member_ids: [effectiveUserId],
           couple_name: params.coupleName || `Ruang ${user.name}`,
           relationship_start_date: params.relationshipStartDate || new Date().toISOString().split('T')[0],
           next_meet_date: params.nextMeetDate || null,
@@ -534,19 +617,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error || !data) {
         console.error('Supabase create room error:', error);
-        throw new Error(error?.message || 'Room gagal disimpan ke server. Pastikan tabel couples Supabase sudah aktif.');
+        throw new Error('Gagal menyimpan ruangan ke server: ' + (error?.message || 'Pastikan izin RLS tabel couples sudah diperbarui.'));
       }
 
       await supabase.from('profiles').update({ 
         couple_id: data.id,
         location_name: params.userCity || 'Jakarta'
-      }).eq('id', remoteUserId);
+      }).eq('id', effectiveUserId);
 
-      await syncRemoteSession(remoteUserId);
+      await syncRemoteSession(effectiveUserId);
       setCurrentView('home');
       return storage.getCouple()!;
     }
 
+    // Demo account only (e.g. initial demo user)
     const newCouple: Couple = {
       id: 'couple_' + Math.random().toString(36).substring(2, 9),
       invite_code: inviteCode,
@@ -580,36 +664,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Silakan masukkan kode undangan yang valid (contoh: US1234).');
     }
 
-    // Get the authenticated Supabase user ID (may differ from local user.id if session was restored)
-    const remoteUserId = await getRemoteUserId() || (isUuid(user.id) ? user.id : null);
+    const effectiveUserId = isUuid(user.id) ? user.id : (await getRemoteUserId());
 
-    if (remoteUserId) {
+    if (effectiveUserId) {
       let joinSuccess = false;
 
-      // 1. Try atomic PostgreSQL RPC first
+      // 1. Ensure profile exists in profiles table
+      try {
+        await supabase.from('profiles').upsert({
+          id: effectiveUserId,
+          name: user.name,
+          email: user.email,
+          photo_url: user.avatar,
+          location_name: userCity || user.location_name || 'Bandung'
+        }, { onConflict: 'id' });
+      } catch (e) {
+        console.warn('Profile upsert before join:', e);
+      }
+
+      // 2. Try PostgreSQL RPC first
       try {
         const { data: rpcData, error: rpcError } = await supabase.rpc('join_couple_room', {
           p_invite_code: code,
-          p_city: userCity || user.location_name || 'Bandung'
+          p_city: userCity || user.location_name || 'Bandung',
+          p_user_id: effectiveUserId
         });
 
         if (!rpcError && rpcData) {
           joinSuccess = true;
-          console.log('[joinRoom] RPC success');
+          console.log('[joinRoom] RPC success:', rpcData);
         } else if (rpcError) {
           console.warn('[joinRoom] RPC error:', rpcError.message);
+          if (rpcError.message && (
+            rpcError.message.includes('sudah penuh') || 
+            rpcError.message.includes('sudah bergabung')
+          )) {
+            throw new Error(rpcError.message);
+          }
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message && (e.message.includes('sudah penuh') || e.message.includes('sudah bergabung'))) {
+          throw e;
+        }
         console.warn('[joinRoom] RPC exception:', e);
       }
 
-      // 2. Direct query fallback
+      // 3. Direct query fallback
       if (!joinSuccess) {
         console.log('[joinRoom] Trying direct query for code:', code);
         const { data: targetCouple, error: findError } = await supabase
           .from('couples')
           .select('*')
-          .eq('invite_code', code)
+          .ilike('invite_code', code)
           .maybeSingle();
 
         console.log('[joinRoom] Direct query result:', { targetCouple, findError });
@@ -620,12 +726,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (!targetCouple) {
+          // Check local demo couples before failing
+          const localMatch = storage.findCoupleByInviteCode(code);
+          if (localMatch) {
+            const updatedCouple: Couple = {
+              ...localMatch,
+              member_ids: Array.from(new Set([...localMatch.member_ids, effectiveUserId])),
+              status: 'active',
+              partner_city: userCity || 'Bandung'
+            };
+            storage.saveCoupleToDB(updatedCouple);
+            storage.setCouple(updatedCouple);
+            setCoupleState(updatedCouple);
+            const updatedUser: UserProfile = { ...user, couple_id: updatedCouple.id };
+            storage.saveUserToDB(updatedUser);
+            storage.setUser(updatedUser);
+            setUserState(updatedUser);
+            setCurrentView('home');
+            return updatedCouple;
+          }
+
           throw new Error(`Ruangan dengan kode "${code}" tidak ditemukan. Pastikan kodenya benar.`);
         }
 
-        if (targetCouple.member_ids?.includes(remoteUserId)) {
+        if (targetCouple.member_ids?.includes(effectiveUserId)) {
           // Already in this room — just sync session
-          await syncRemoteSession(remoteUserId);
+          await syncRemoteSession(effectiveUserId);
           setCurrentView('home');
           return storage.getCouple()!;
         }
@@ -634,7 +760,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Ruangan ini sudah penuh (terhubung dengan 2 anggota).');
         }
 
-        const newMemberIds = [...(targetCouple.member_ids || []), remoteUserId];
+        const newMemberIds = Array.from(new Set([...(targetCouple.member_ids || []), effectiveUserId]));
         const partnerCity = userCity || user.location_name || 'Bandung';
 
         const { data: updatedData, error: updateError } = await supabase
@@ -656,11 +782,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase.from('profiles').update({ 
           couple_id: targetCouple.id,
           location_name: partnerCity 
-        }).eq('id', remoteUserId);
+        }).eq('id', effectiveUserId);
       }
 
       // Sync complete state (including partner profile!)
-      await syncRemoteSession(remoteUserId);
+      await syncRemoteSession(effectiveUserId);
       setCurrentView('home');
       return storage.getCouple()!;
     }

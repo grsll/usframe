@@ -7,7 +7,7 @@ import { Sparkles, ArrowLeft, Upload, X } from 'lucide-react';
 import { compressImage } from '../lib/utils';
 
 export const AuthPage: React.FC = () => {
-  const { login, register, loginDemo, setCurrentView } = useAuth();
+  const { login, register, loginDemo, setCurrentView, user, couple } = useAuth();
   const { error, success } = useToast();
 
   const [mode, setMode] = useState<'login' | 'register'>('register');
@@ -63,19 +63,41 @@ export const AuthPage: React.FC = () => {
     success('Berhasil masuk dengan akun demo Kai & Elena! ✨');
   };
 
+  const handleBack = () => {
+    if (couple) {
+      setCurrentView('home');
+    } else {
+      setCurrentView('landing');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-6 grain-overlay">
+    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-6 grain-overlay relative">
       
-      {/* Back to landing */}
+      {/* Back to landing / home */}
       <button
-        onClick={() => setCurrentView('landing')}
+        onClick={handleBack}
         className="absolute top-6 left-6 text-xs text-foreground-muted hover:text-foreground flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border shadow-xs transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Kembali</span>
+        <span>{couple ? 'Ke Beranda' : 'Ke Halaman Awal'}</span>
       </button>
 
       <div className="w-full max-w-md bg-surface border border-border rounded-3xl p-6 sm:p-9 shadow-elevated space-y-5 sm:space-y-6">
+        
+        {/* If user is already authenticated */}
+        {user && (
+          <div className="p-3 rounded-2xl bg-surface-subtle border border-border text-xs flex items-center justify-between gap-2 text-foreground-muted">
+            <span>Masuk sebagai: <strong className="text-foreground">{user.name}</strong></span>
+            <button
+              type="button"
+              onClick={() => couple ? setCurrentView('home') : setCurrentView('onboarding')}
+              className="text-terracotta-600 dark:text-terracotta-400 font-semibold hover:underline cursor-pointer"
+            >
+              {couple ? 'Buka Ruang →' : 'Hubungkan Ruang →'}
+            </button>
+          </div>
+        )}
         
         {/* Header */}
         <div className="text-center space-y-2">

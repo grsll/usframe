@@ -3,11 +3,11 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
-import { Heart, Sparkles, KeyRound } from 'lucide-react';
+import { Heart, Sparkles, KeyRound, ArrowLeft, Home, LogOut } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export const OnboardingPage: React.FC = () => {
-  const { createCoupleRoom, joinCoupleRoom, user } = useAuth();
+  const { createCoupleRoom, joinCoupleRoom, user, couple, logout, setCurrentView, loginDemo } = useAuth();
   const { success, error } = useToast();
 
   const [tab, setTab] = useState<'create' | 'join'>('create');
@@ -32,6 +32,14 @@ export const OnboardingPage: React.FC = () => {
     }
   }, []);
 
+  const handleBack = () => {
+    if (couple) {
+      setCurrentView('home');
+    } else {
+      setCurrentView('landing');
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -46,6 +54,7 @@ export const OnboardingPage: React.FC = () => {
 
       confetti({ particleCount: 50, spread: 70 });
       success(`Ruangan berhasil dibuat! Kode undanganmu: ${room.invite_code} 🤍`);
+      setCurrentView('home');
     } catch (err: any) {
       error(err.message || 'Gagal membuat ruangan.');
     } finally {
@@ -62,6 +71,7 @@ export const OnboardingPage: React.FC = () => {
       await joinCoupleRoom(inviteCode.trim().toUpperCase(), joinCity);
       confetti({ particleCount: 50, spread: 70 });
       success('Berhasil bergabung ke ruangan pasangan! 🤍');
+      setCurrentView('home');
     } catch (err: any) {
       error(err.message || 'Kode undangan tidak valid.');
     } finally {
@@ -70,10 +80,61 @@ export const OnboardingPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-6 grain-overlay">
+    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-6 grain-overlay relative">
       
+      {/* Top Navigation Bar */}
+      <div className="w-full max-w-lg flex items-center justify-between mb-4 sm:mb-6">
+        <button
+          onClick={handleBack}
+          className="text-xs text-foreground-muted hover:text-foreground flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-surface border border-border shadow-xs transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>{couple ? 'Ke Beranda' : 'Ke Halaman Awal'}</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          {couple && (
+            <button
+              onClick={() => setCurrentView('home')}
+              className="text-xs text-terracotta-600 dark:text-terracotta-400 hover:underline flex items-center gap-1 px-3 py-2 rounded-xl bg-terracotta-50 dark:bg-terracotta-950 border border-terracotta-200 dark:border-terracotta-800 transition-colors cursor-pointer font-medium"
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Buka Ruang Kita</span>
+            </button>
+          )}
+
+          {user && (
+            <button
+              onClick={logout}
+              title="Keluar akun"
+              className="text-xs text-foreground-muted hover:text-rose-600 flex items-center gap-1 px-3 py-2 rounded-xl bg-surface border border-border hover:border-rose-200 shadow-xs transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Keluar</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="w-full max-w-lg bg-surface border border-border rounded-3xl p-6 sm:p-9 shadow-elevated space-y-5 sm:space-y-6">
         
+        {/* Active Couple Banner if user is already connected */}
+        {couple && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-xs text-emerald-800 dark:text-emerald-200 flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Kamu sudah berada di ruangan: {couple.couple_name || couple.invite_code}</p>
+              <p className="text-[11px] text-emerald-700 dark:text-emerald-300">Kode Ruangan: <strong>{couple.invite_code}</strong></p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCurrentView('home')}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs whitespace-nowrap shadow-xs cursor-pointer transition-colors"
+            >
+              Ke Beranda →
+            </button>
+          </div>
+        )}
+
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-full bg-terracotta-50 dark:bg-terracotta-950 text-terracotta-500 flex items-center justify-center mx-auto shadow-sm">
             <Heart className="w-6 h-6 fill-current animate-pulse-subtle" />
@@ -198,6 +259,25 @@ export const OnboardingPage: React.FC = () => {
             </Button>
           </form>
         )}
+
+        {/* Quick Demo Access / Return Link */}
+        <div className="pt-2 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-foreground-muted">
+          <button
+            type="button"
+            onClick={() => setCurrentView('landing')}
+            className="hover:text-foreground transition-colors cursor-pointer"
+          >
+            ← Halaman Utama
+          </button>
+
+          <button
+            type="button"
+            onClick={() => loginDemo()}
+            className="text-terracotta-600 dark:text-terracotta-400 hover:underline transition-colors cursor-pointer font-medium"
+          >
+            Coba Mode Demo (Kai × Elena) →
+          </button>
+        </div>
 
       </div>
 
