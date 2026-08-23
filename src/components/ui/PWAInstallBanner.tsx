@@ -83,7 +83,7 @@ export const PWAInstallBanner: React.FC = () => {
 
   return (
     <>
-      <aside aria-label="Instalasi Aplikasi" className="fixed bottom-20 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-40 animate-fade-in-up">
+      <aside aria-label="Instalasi Aplikasi" className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md z-40 animate-fade-in-up">
         <div className="bg-surface/95 backdrop-blur-md border-2 border-terracotta-500/30 rounded-3xl p-4 sm:p-4.5 shadow-elevated flex items-center justify-between gap-3 relative overflow-hidden group">
           
           {/* Subtle Glow Accent */}

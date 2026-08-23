@@ -22,8 +22,8 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-30 w-full bg-background/85 backdrop-blur-md border-b border-border transition-colors">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
+    <header className="sticky top-0 z-30 w-full bg-background/90 backdrop-blur-md border-b border-border transition-colors pt-[env(safe-area-inset-top,0px)]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Brand & Couple Identity */}
         <div className="flex items-center gap-2 sm:gap-4 truncate">

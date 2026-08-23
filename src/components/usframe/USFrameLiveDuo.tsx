@@ -547,27 +547,27 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
       </div>
 
       {/* Split Dual Camera Stage (KIRI: Kamu / KANAN: Pasangan) */}
-      <div className="relative grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      <div className="relative grid grid-cols-2 gap-2 sm:gap-6">
         
         {/* Flash Overlay */}
         {isFlashing && (
-          <div className="absolute inset-0 z-50 bg-white animate-pulse pointer-events-none rounded-3xl" />
+          <div className="absolute inset-0 z-50 bg-white animate-pulse pointer-events-none rounded-2xl sm:rounded-3xl" />
         )}
 
         {/* Countdown Indicator Overlay */}
         {countdown !== null && (
-          <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center rounded-3xl pointer-events-none">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-terracotta-500 text-white flex items-center justify-center font-serif text-5xl sm:text-7xl font-bold shadow-elevated animate-ping-once">
+          <div className="absolute inset-0 z-40 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl pointer-events-none p-2 text-center">
+            <div className="w-16 h-16 sm:w-32 sm:h-32 rounded-full bg-terracotta-500 text-white flex items-center justify-center font-serif text-3xl sm:text-7xl font-bold shadow-elevated animate-ping-once">
               {countdown}
             </div>
-            <div className="mt-4 px-4 py-1.5 rounded-full bg-black/70 text-white text-xs font-semibold uppercase tracking-wider">
-              Pose {currentPose} dari 4! Bersiap senyum 📸
+            <div className="mt-2 sm:mt-4 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-black/70 text-white text-[10px] sm:text-xs font-semibold uppercase tracking-wider">
+              Pose {currentPose} / 4! Senyum 📸
             </div>
           </div>
         )}
 
         {/* LEFT CAMERA: ME */}
-        <div className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-stone-900 border-2 border-border shadow-soft flex flex-col justify-between p-3.5 sm:p-4">
+        <div className="relative aspect-[3/4] sm:aspect-[4/3] rounded-2xl sm:rounded-3xl overflow-hidden bg-stone-900 border border-border sm:border-2 shadow-soft flex flex-col justify-between p-2 sm:p-4">
           <video
             ref={localVideoRef}
             autoPlay
@@ -578,30 +578,30 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
           {/* Camera Label Header */}
           <div className="relative z-10 flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              {user?.name || 'Kamu'} (Kiri)
+            <span className="px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs font-medium flex items-center gap-1 sm:gap-1.5 truncate max-w-[85%]">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="truncate">{user?.name || 'Kamu'}</span>
             </span>
 
             <button
               onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
               disabled={isSessionActive}
-              className="p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors cursor-pointer"
+              className="p-1 sm:p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors cursor-pointer"
               title="Putar Kamera"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
 
           <div className="relative z-10 flex justify-between items-end">
-            <span className="text-[11px] font-medium text-white/80 px-2.5 py-0.5 rounded-lg bg-black/40 backdrop-blur-xs">
+            <span className="text-[9px] sm:text-[11px] font-medium text-white/80 px-1.5 sm:px-2.5 py-0.5 rounded-md sm:rounded-lg bg-black/40 backdrop-blur-xs truncate max-w-full">
               📍 {couple?.user_city || 'Jakarta'}
             </span>
           </div>
         </div>
 
         {/* RIGHT CAMERA: PARTNER */}
-        <div className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-stone-900 border-2 border-border shadow-soft flex flex-col justify-between p-3.5 sm:p-4">
+        <div className="relative aspect-[3/4] sm:aspect-[4/3] rounded-2xl sm:rounded-3xl overflow-hidden bg-stone-900 border border-border sm:border-2 shadow-soft flex flex-col justify-between p-2 sm:p-4">
           {remoteStream ? (
             <video
               ref={remoteVideoRef}
@@ -616,28 +616,28 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
               className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-stone-400 bg-stone-900/90 space-y-3">
-              <div className="w-16 h-16 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-terracotta-400 overflow-hidden">
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-3 sm:p-6 text-center text-stone-400 bg-stone-900/90 space-y-2 sm:space-y-3">
+              <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-terracotta-400 overflow-hidden shrink-0">
                 {partner?.avatar ? (
                   <img src={partner.avatar} alt={partner.name} className="w-full h-full object-cover" />
                 ) : (
-                  <Camera className="w-8 h-8 animate-pulse" />
+                  <Camera className="w-5 h-5 sm:w-8 sm:h-8 animate-pulse" />
                 )}
               </div>
               <div>
-                <h4 className="text-sm font-semibold text-white">
-                  Kamera {partner?.name || 'Pasangan'} (Kanan)
+                <h4 className="text-xs sm:text-sm font-semibold text-white truncate">
+                  {partner?.name || 'Pasangan'}
                 </h4>
-                <p className="text-xs text-stone-400 max-w-xs mt-1">
+                <p className="text-[10px] sm:text-xs text-stone-400 line-clamp-2 mt-0.5 hidden xs:block">
                   {partnerOnline 
-                    ? 'Menghubungkan sinyal video berdua...' 
-                    : 'Ajak pasangan untuk membuka kamera studio secara langsung.'}
+                    ? 'Menghubungkan...' 
+                    : 'Ajak pasangan membuka kamera'}
                 </p>
               </div>
               {!partnerOnline && (
-                <Button onClick={handleSendInvite} size="sm" variant="outline" className="text-white border-stone-700">
-                  <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-                  Panggil Pasangan
+                <Button onClick={handleSendInvite} size="sm" variant="outline" className="text-white border-stone-700 text-[10px] sm:text-xs px-2 py-1 h-auto">
+                  <UserPlus className="w-3 h-3 mr-1" />
+                  <span>Panggil</span>
                 </Button>
               )}
             </div>
@@ -645,14 +645,14 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
           {/* Partner Label */}
           <div className="relative z-10 flex items-center justify-between">
-            <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium flex items-center gap-1.5">
-              <span className={`w-2 h-2 rounded-full ${partnerOnline ? 'bg-emerald-400' : 'bg-amber-400'} animate-pulse`} />
-              {partner?.name || 'Pasangan'} (Kanan)
+            <span className="px-2 sm:px-3 py-0.5 sm:py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-xs font-medium flex items-center gap-1 sm:gap-1.5 truncate max-w-[85%]">
+              <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${partnerOnline ? 'bg-emerald-400' : 'bg-amber-400'} animate-pulse shrink-0`} />
+              <span className="truncate">{partner?.name || 'Pasangan'}</span>
             </span>
           </div>
 
           <div className="relative z-10 flex justify-between items-end">
-            <span className="text-[11px] font-medium text-white/80 px-2.5 py-0.5 rounded-lg bg-black/40 backdrop-blur-xs">
+            <span className="text-[9px] sm:text-[11px] font-medium text-white/80 px-1.5 sm:px-2.5 py-0.5 rounded-md sm:rounded-lg bg-black/40 backdrop-blur-xs truncate max-w-full">
               📍 {couple?.partner_city || 'Bandung'}
             </span>
           </div>

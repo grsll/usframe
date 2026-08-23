@@ -118,7 +118,7 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Main Content Area with mobile safe padding for bottom bar */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-28 md:pb-12">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-3 sm:pt-6 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-12">
         {currentView === 'home' && <HomePage />}
         {currentView === 'memories' && <MemoriesPage />}
         {currentView === 'usframe' && <USFramePage />}

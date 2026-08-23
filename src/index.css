@@ -80,6 +80,8 @@
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
   }
 
   body {
@@ -87,6 +89,9 @@
     color: var(--text-main);
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     transition: background-color 0.25s ease, color 0.25s ease;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
   }
 
   :focus-visible {
@@ -95,10 +100,24 @@
   }
 }
 
+/* Mobile Safe Area Inset Helpers */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -141,3 +160,4 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
