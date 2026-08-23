@@ -1,13 +1,18 @@
 // USFRAME Progressive Web App Service Worker
-const CACHE_NAME = 'usframe-cache-v1';
+const CACHE_NAME = 'usframe-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
+  '/manifest.json',
   '/icon.svg',
   '/icon-192.png',
   '/icon-512.png',
-  '/apple-touch-icon.png'
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
+  '/apple-touch-icon.png',
+  '/favicon-32x32.png',
+  '/favicon.ico'
 ];
 
 self.addEventListener('install', (event) => {
