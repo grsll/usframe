@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
-import { Sun, Moon, Laptop, Heart, Globe, UserPlus, MessageCircleHeart } from 'lucide-react';
+import { Sun, Moon, Laptop, Heart, Globe, UserPlus, MessageCircleHeart, Flame } from 'lucide-react';
 import { HeartPulseModal } from '../home/HeartPulseModal';
 import { generateInitialsAvatar, formatCoupleLocation } from '../../lib/utils';
+import { streakService } from '../../lib/streakService';
 
 export const Header: React.FC = () => {
   const { user, partner, couple, setCurrentView } = useAuth();
   const { theme, setTheme } = useTheme();
   const [isPulseModalOpen, setIsPulseModalOpen] = useState(false);
+  const [streakDays, setStreakDays] = useState<number>(1);
 
   const isPending = !partner || couple?.status === 'pending';
   const userAvatar = user?.avatar || generateInitialsAvatar(user?.name || 'Kamu');
@@ -19,6 +21,18 @@ export const Header: React.FC = () => {
   const myCity = user?.location_name || (isFirstMember ? couple?.user_city : couple?.partner_city);
   const partnerCity = partner?.location_name || (isFirstMember ? couple?.partner_city : couple?.user_city);
   const displayLocation = formatCoupleLocation(myCity, partnerCity);
+
+  useEffect(() => {
+    if (couple?.id) {
+      streakService.getStreakAndPet(couple.id).then(({ streak }) => {
+        setStreakDays(streak.currentStreak || 1);
+      });
+      const unsub = streakService.subscribeToStreakAndPet(couple.id, ({ streak }) => {
+        setStreakDays(streak.currentStreak || 1);
+      });
+      return () => unsub();
+    }
+  }, [couple?.id]);
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -31,7 +45,7 @@ export const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
         
         {/* Brand & Couple Identity */}
-        <div className="flex items-center gap-2 sm:gap-4 truncate">
+        <div className="flex items-center gap-2 sm:gap-3 truncate">
           <button 
             onClick={() => setCurrentView('home')}
             className="flex items-center gap-2 text-left group cursor-pointer shrink-0"
@@ -49,6 +63,17 @@ export const Header: React.FC = () => {
               </span>
             </div>
           </button>
+
+          {/* Streak Flame Badge */}
+          {couple && (
+            <div 
+              title="Streak kebersamaan berdua"
+              className="flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/60 text-[11px] font-bold text-amber-700 dark:text-amber-300 shadow-2xs"
+            >
+              <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500 animate-pulse" />
+              <span>{streakDays} Hari</span>
+            </div>
+          )}
 
           {/* Dual User City badge */}
           {couple && (

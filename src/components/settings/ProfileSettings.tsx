@@ -41,7 +41,7 @@ export const ProfileSettings: React.FC = () => {
         success('Foto profil berhasil dimuat! Klik Simpan untuk memperbarui.');
       }
     } catch (err: any) {
-      error('Gagal mengunggah foto profil: ' + (err.message || 'Coba gambar lain.'));
+      error(err.message || 'Gagal memproses foto profil. Silakan gunakan format JPG atau PNG.');
     }
   };
 

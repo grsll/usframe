@@ -205,6 +205,13 @@ export const roomService = {
       storage.addMemory(newMemory, memory.coupleId);
     }
 
+    // Award Couple Streak & Pet XP
+    if (memory.coupleId) {
+      import('./streakService').then(({ streakService }) => {
+        streakService.recordActivity(memory.coupleId, 'memory_added', memory.uploaderId).catch(() => null);
+      });
+    }
+
     return newMemory;
   },
 
@@ -411,6 +418,13 @@ export const roomService = {
       storage.addLoveNote(newNote, note.coupleId);
     }
 
+    // Award Couple Streak & Pet XP
+    if (note.coupleId) {
+      import('./streakService').then(({ streakService }) => {
+        streakService.recordActivity(note.coupleId, 'letter_sent', note.senderId).catch(() => null);
+      });
+    }
+
     return newNote;
   },
 
@@ -598,6 +612,13 @@ export const roomService = {
       }
     } else {
       storage.addHeartMessage(newMsg, msg.coupleId);
+    }
+
+    // Award Couple Streak & Pet XP
+    if (msg.coupleId) {
+      import('./streakService').then(({ streakService }) => {
+        streakService.recordActivity(msg.coupleId, 'kangen', msg.senderId).catch(() => null);
+      });
     }
 
     return newMsg;
@@ -1078,6 +1099,13 @@ export const roomService = {
       }
     }
 
+    // Award Couple Streak & Pet XP
+    if (item.coupleId) {
+      import('./streakService').then(({ streakService }) => {
+        streakService.recordActivity(item.coupleId, 'bucket_item', item.createdBy).catch(() => null);
+      });
+    }
+
     return newItem;
   },
 
@@ -1256,6 +1284,13 @@ export const roomService = {
       } catch (err) {
         console.error('Supabase submitDailyQuestionAnswer error:', err);
       }
+    }
+
+    // Award Couple Streak & Pet XP
+    if (coupleId) {
+      import('./streakService').then(({ streakService }) => {
+        streakService.recordActivity(coupleId, 'daily_question', userId).catch(() => null);
+      });
     }
 
     return updatedDq;

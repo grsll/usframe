@@ -13,6 +13,29 @@ export type UserProfile = {
   created_at?: string;
 };
 
+export type PetType = 'cat' | 'chick' | 'bunny' | 'bear' | 'penguin';
+
+export type CouplePet = {
+  name: string;
+  type: PetType;
+  level: number;
+  xp: number;
+  totalXp: number;
+  lastInteraction?: string;
+  statusText?: string;
+};
+
+export type CoupleStreak = {
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string;
+  streakStartedAt?: string;
+  streakBrokenAt?: string | null;
+  unlockedMilestones: number[];
+};
+
+export type CoupleActivityType = 'kangen' | 'memory_added' | 'letter_sent' | 'daily_question' | 'bucket_item' | 'pet_interaction';
+
 export type Couple = {
   id: string;
   invite_code: string;
@@ -25,6 +48,20 @@ export type Couple = {
   user_city?: string;
   partner_city?: string;
   distance_km?: number;
+  current_streak?: number;
+  longest_streak?: number;
+  last_activity_date?: string;
+  streak_started_at?: string;
+  streak_broken_at?: string | null;
+  pet_name?: string;
+  pet_type?: PetType | string;
+  pet_level?: number;
+  pet_xp?: number;
+  total_xp?: number;
+  xp?: number;
+  unlocked_milestones?: number[];
+  pet?: CouplePet;
+  streak?: CoupleStreak;
   created_at?: string;
 };
 

@@ -4,6 +4,7 @@ import { storage } from '../lib/storage';
 import { roomService } from '../lib/roomService';
 import { Memory, Countdown } from '../types';
 import { CoupleHeader } from '../components/home/CoupleHeader';
+import { CouplePetCard } from '../components/home/CouplePetCard';
 import { FeaturedMemory } from '../components/home/FeaturedMemory';
 import { QuickActions } from '../components/home/QuickActions';
 import { NextMeetCountdown } from '../components/home/NextMeetCountdown';
@@ -90,6 +91,9 @@ export const HomePage: React.FC = () => {
       
       {/* Couple Header Hero */}
       <CoupleHeader />
+
+      {/* Virtual Couple Pet & Streak System */}
+      <CouplePetCard />
 
       {/* Quick Action Buttons */}
       <QuickActions onOpenAddMemory={() => setIsAddMemoryOpen(true)} />
