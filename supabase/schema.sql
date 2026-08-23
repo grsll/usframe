@@ -341,13 +341,69 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- Enable Realtime for all collaborative tables
-ALTER PUBLICATION supabase_realtime ADD TABLE public.couples;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.heart_notes;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.love_letters;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.memories;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.milestones;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.countdowns;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.bucket_list_items;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_questions;
+-- Enable Realtime safely for all collaborative tables (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'couples'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.couples;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'profiles'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'heart_notes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.heart_notes;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'love_letters'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.love_letters;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'memories'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.memories;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'milestones'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.milestones;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'countdowns'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.countdowns;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'bucket_list_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.bucket_list_items;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'daily_questions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_questions;
+  END IF;
+END $$;
