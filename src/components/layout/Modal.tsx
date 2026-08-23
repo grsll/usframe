@@ -53,7 +53,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -63,14 +63,11 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         ref={modalRef}
         className={cn(
-          "relative w-full bg-surface border-t sm:border border-border rounded-t-3xl sm:rounded-3xl shadow-elevated overflow-hidden animate-slide-up flex flex-col max-h-[90vh] sm:max-h-[85vh]",
+          "relative w-full max-w-[92vw] sm:max-w-lg bg-surface border border-border rounded-3xl shadow-elevated overflow-hidden animate-fade-in-up flex flex-col max-h-[88vh] my-auto",
           maxWidthClasses[maxWidth],
           className
         )}
       >
-        {/* Mobile Drag Indicator Handle */}
-        <div className="w-12 h-1.5 bg-border-strong rounded-full mx-auto mt-3 mb-1 sm:hidden shrink-0" />
-
         {/* Header */}
         {(title || subtitle) && (
           <div className="flex items-start justify-between p-4 sm:p-6 border-b border-border bg-surface-subtle/40 shrink-0">
