@@ -74,6 +74,7 @@ export const roomService = {
           title: row.title || 'Kenangan Bersama',
           caption: row.caption || '',
           media_url: row.media_url,
+          storage_path: row.storage_path || undefined,
           media_type: (row.media_type as 'image' | 'usframe_strip') || 'image',
           date: row.memory_date || (row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
           location: row.location || undefined,
@@ -111,6 +112,25 @@ export const roomService = {
     const createdAt = new Date().toISOString();
     const dateStr = memory.date || createdAt.split('T')[0];
 
+    let finalMediaUrl = memory.mediaUrl;
+    let storagePath: string | undefined = undefined;
+
+    // 1. Upload to Supabase Cloud Storage if mediaUrl is a local dataURL or Blob
+    if (isRemote && (memory.mediaUrl.startsWith('data:') || memory.mediaUrl.startsWith('blob:'))) {
+      try {
+        const uploadResult = await (await import('./cloudStorage')).cloudStorage.uploadMemoryImage(
+          memory.mediaUrl,
+          memory.coupleId,
+          memory.mediaType === 'usframe_strip' ? 'strip' : 'photo'
+        );
+        finalMediaUrl = uploadResult.publicUrl;
+        storagePath = uploadResult.storagePath;
+      } catch (uploadErr: any) {
+        console.error('Cloud Storage upload failed in createMemory:', uploadErr);
+        throw new Error(uploadErr.message || 'Gagal mengunggah foto ke Cloud Storage server.');
+      }
+    }
+
     const newMemory: Memory = {
       id: newId,
       couple_id: memory.coupleId,
@@ -118,7 +138,8 @@ export const roomService = {
       creator_name: memory.creatorName,
       title: memory.title,
       caption: memory.caption,
-      media_url: memory.mediaUrl,
+      media_url: finalMediaUrl,
+      storage_path: storagePath,
       media_type: memory.mediaType || 'image',
       date: dateStr,
       location: memory.location,
@@ -127,7 +148,7 @@ export const roomService = {
       created_at: createdAt
     };
 
-    // Save to room-scoped local cache
+    // Save to room-scoped local cache with permanent cloud URL
     storage.addMemory(newMemory, memory.coupleId);
 
     if (isRemote) {
@@ -141,7 +162,8 @@ export const roomService = {
             title: memory.title,
             caption: memory.caption,
             location: memory.location || null,
-            media_url: memory.mediaUrl,
+            media_url: finalMediaUrl,
+            storage_path: storagePath || null,
             media_type: memory.mediaType || 'image',
             category: memory.category || 'Kencan',
             is_favorite: Boolean(memory.isFavorite),
@@ -152,6 +174,7 @@ export const roomService = {
 
         if (error) {
           console.error('Failed to sync memory to Supabase:', error);
+          throw new Error('Gagal menyimpan memori ke database server: ' + error.message);
         } else if (data) {
           newMemory.creator_name = data.profiles?.name || memory.creatorName;
         }
@@ -179,8 +202,9 @@ export const roomService = {
           payload: { type: 'memory', memoryId: newId, uploaderId: memory.uploaderId }
         }).catch(() => null);
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Supabase createMemory network error:', err);
+        throw err;
       }
     }
 
@@ -206,6 +230,7 @@ export const roomService = {
 
   deleteMemory: async (id: string, coupleId?: string | null): Promise<void> => {
     const list = storage.getMemories(coupleId);
+    const target = list.find(m => m.id === id);
     const updated = list.filter(m => m.id !== id);
     storage.setMemories(updated, coupleId);
 
@@ -215,6 +240,10 @@ export const roomService = {
           .from('memories')
           .delete()
           .eq('id', id);
+
+        if (target?.storage_path) {
+          (await import('./cloudStorage')).cloudStorage.deleteFile('memories', target.storage_path).catch(() => null);
+        }
 
         const channel = supabase.channel(`couple_room_${coupleId}`);
         channel.send({
@@ -646,6 +675,20 @@ export const roomService = {
     const newId = isRemote ? generateUuid() : 'm_' + Math.random().toString(36).substring(2, 9);
     const createdAt = new Date().toISOString();
 
+    let finalImageUrl = m.imageUrl;
+    if (isRemote && m.imageUrl && (m.imageUrl.startsWith('data:') || m.imageUrl.startsWith('blob:'))) {
+      try {
+        const uploadResult = await (await import('./cloudStorage')).cloudStorage.uploadMemoryImage(
+          m.imageUrl,
+          m.coupleId,
+          'milestone'
+        );
+        finalImageUrl = uploadResult.publicUrl;
+      } catch (err) {
+        console.warn('Milestone image upload warning:', err);
+      }
+    }
+
     const newMilestone: Milestone = {
       id: newId,
       couple_id: m.coupleId,
@@ -653,7 +696,7 @@ export const roomService = {
       description: m.description,
       date: m.date,
       location: m.location,
-      image_url: m.imageUrl,
+      image_url: finalImageUrl,
       category: m.category || 'dating',
       created_at: createdAt
     };
@@ -671,7 +714,7 @@ export const roomService = {
             description: m.description,
             date: m.date,
             location: m.location || null,
-            image_url: m.imageUrl || null,
+            image_url: finalImageUrl || null,
             category: m.category || 'dating'
           }]);
 

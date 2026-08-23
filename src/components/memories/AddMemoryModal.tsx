@@ -11,7 +11,7 @@ import { isUuid, generateUuid } from '../../lib/utils';
 interface AddMemoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddMemory: (memory: Memory) => void;
+  onAddMemory: (memory: Memory) => Promise<void> | void;
 }
 
 export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
@@ -20,7 +20,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
   onAddMemory
 }) => {
   const { user, couple } = useAuth();
-  const { success } = useToast();
+  const { success, error: errorToast } = useToast();
 
   const [title, setTitle] = useState('');
   const [caption, setCaption] = useState('');
@@ -29,6 +29,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
   const [category, setCategory] = useState<string>('Kencan');
   const [mediaUrl, setMediaUrl] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const categories = ['Kencan', 'Perjalanan', 'Sehari-hari', 'Momen Spesial', 'Photobooth'];
 
@@ -43,36 +44,45 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !mediaUrl) return;
+    if (!title || !mediaUrl || isUploading) return;
 
-    const newMem: Memory = {
-      id: isUuid(couple?.id) ? generateUuid() : 'mem_' + Math.random().toString(36).substring(2, 9),
-      couple_id: couple?.id || 'couple_main',
-      created_by: user?.id || 'user_me',
-      creator_name: user?.name || 'Kai',
-      title,
-      caption,
-      media_url: mediaUrl,
-      media_type: category === 'Photobooth' ? 'usframe_strip' : 'image',
-      date,
-      location,
-      category,
-      is_favorite: isFavorite,
-      created_at: new Date().toISOString()
-    };
+    setIsUploading(true);
 
-    onAddMemory(newMem);
-    success('Kenangan berhasil disimpan ke brankas pasangan! 🤍');
-    onClose();
+    try {
+      const newMem: Memory = {
+        id: isUuid(couple?.id) ? generateUuid() : 'mem_' + Math.random().toString(36).substring(2, 9),
+        couple_id: couple?.id || 'couple_main',
+        created_by: user?.id || 'user_me',
+        creator_name: user?.name || 'Kai',
+        title,
+        caption,
+        media_url: mediaUrl,
+        media_type: category === 'Photobooth' ? 'usframe_strip' : 'image',
+        date,
+        location,
+        category,
+        is_favorite: isFavorite,
+        created_at: new Date().toISOString()
+      };
 
-    // Reset Form
-    setTitle('');
-    setCaption('');
-    setLocation('');
-    setMediaUrl('');
-    setIsFavorite(false);
+      await onAddMemory(newMem);
+      success('Kenangan berhasil diunggah dan disimpan ke cloud brankas! 🤍');
+      onClose();
+
+      // Reset Form
+      setTitle('');
+      setCaption('');
+      setLocation('');
+      setMediaUrl('');
+      setIsFavorite(false);
+    } catch (err: any) {
+      console.error('Add memory failed:', err);
+      errorToast(err.message || 'Gagal mengunggah kenangan ke cloud storage.');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -198,8 +208,8 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
           <Button type="button" variant="outline" onClick={onClose}>
             Batal
           </Button>
-          <Button type="submit" variant="primary" disabled={!title || !mediaUrl}>
-            Simpan Kenangan
+          <Button type="submit" variant="primary" disabled={!title || !mediaUrl || isUploading}>
+            {isUploading ? 'Mengunggah ke Cloud Storage...' : 'Simpan Kenangan'}
           </Button>
         </div>
 

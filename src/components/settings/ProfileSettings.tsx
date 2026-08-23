@@ -26,11 +26,18 @@ export const ProfileSettings: React.FC = () => {
     if (!file) return;
 
     try {
-      const compressed = await compressImage(file, 400, 0.85);
-      setAvatar(compressed);
-      success('Foto profil berhasil dimuat! Klik Simpan untuk memperbarui.');
-    } catch (err) {
-      error('Gagal memproses file foto. Coba gambar lain.');
+      if (user?.id) {
+        const { cloudStorage } = await import('../../lib/cloudStorage');
+        const cloudUrl = await cloudStorage.uploadAvatarImage(file, user.id);
+        setAvatar(cloudUrl);
+        success('Foto profil berhasil diunggah ke cloud! Klik Simpan untuk memperbarui.');
+      } else {
+        const compressed = await compressImage(file, 400, 0.85);
+        setAvatar(compressed);
+        success('Foto profil berhasil dimuat! Klik Simpan untuk memperbarui.');
+      }
+    } catch (err: any) {
+      error('Gagal mengunggah foto profil: ' + (err.message || 'Coba gambar lain.'));
     }
   };
 

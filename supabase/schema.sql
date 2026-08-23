@@ -105,12 +105,15 @@ CREATE TABLE IF NOT EXISTS public.memories (
   caption TEXT,
   location TEXT,
   media_url TEXT NOT NULL,
+  storage_path TEXT,
   media_type TEXT DEFAULT 'image', -- 'image', 'usframe_strip', 'voicenote', 'video'
   category TEXT DEFAULT 'Random',
   is_favorite BOOLEAN DEFAULT false,
   memory_date DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS storage_path TEXT;
 
 -- 7. Timeline / Milestones
 CREATE TABLE IF NOT EXISTS public.milestones (
@@ -391,3 +394,32 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
   END IF;
 END $$;
+
+-- 12. Supabase Storage Buckets & Policies (Persistent Cloud Storage for Memories & Avatars)
+INSERT INTO storage.buckets (id, name, public)
+VALUES 
+  ('memories', 'memories', true),
+  ('avatars', 'avatars', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Storage Policies for Memories
+DROP POLICY IF EXISTS "Public Memories Storage Select" ON storage.objects;
+DROP POLICY IF EXISTS "Public Memories Storage Insert" ON storage.objects;
+DROP POLICY IF EXISTS "Public Memories Storage Update" ON storage.objects;
+DROP POLICY IF EXISTS "Public Memories Storage Delete" ON storage.objects;
+
+CREATE POLICY "Public Memories Storage Select" 
+ON storage.objects FOR SELECT 
+USING (bucket_id IN ('memories', 'avatars'));
+
+CREATE POLICY "Public Memories Storage Insert" 
+ON storage.objects FOR INSERT 
+WITH CHECK (bucket_id IN ('memories', 'avatars'));
+
+CREATE POLICY "Public Memories Storage Update" 
+ON storage.objects FOR UPDATE 
+USING (bucket_id IN ('memories', 'avatars'));
+
+CREATE POLICY "Public Memories Storage Delete" 
+ON storage.objects FOR DELETE 
+USING (bucket_id IN ('memories', 'avatars'));
