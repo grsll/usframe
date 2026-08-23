@@ -60,6 +60,7 @@ interface AuthContextType {
   user: UserProfile | null;
   partner: UserProfile | null;
   couple: Couple | null;
+  userRooms: Couple[];
   isAuthenticated: boolean;
   currentView: AppView;
   setCurrentView: (view: AppView, replace?: boolean) => void;
@@ -67,6 +68,9 @@ interface AuthContextType {
   register: (name: string, email: string, pass: string, avatar?: string) => Promise<boolean>;
   loginDemo: () => void;
   logout: () => void;
+  fetchUserRooms: () => Promise<Couple[]>;
+  switchCoupleRoom: (coupleId: string) => Promise<void>;
+  deleteCoupleRoom: (coupleId: string) => Promise<void>;
   createCoupleRoom: (params: {
     coupleName?: string;
     relationshipStartDate: string;
@@ -92,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUserState] = useState<UserProfile | null>(() => storage.getUser());
   const [partner, setPartnerState] = useState<UserProfile | null>(() => storage.getPartner());
   const [couple, setCoupleState] = useState<Couple | null>(() => storage.getCouple());
+  const [userRooms, setUserRooms] = useState<Couple[]>([]);
 
   const [currentView, setCurrentViewState] = useState<AppView>(() => {
     const fromUrl = getViewFromUrl();
@@ -525,11 +530,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const session = await syncRemoteSession(data.user.id);
-    if (session.couple) {
-      setCurrentView('home');
-    } else {
-      setCurrentView('onboarding');
-    }
+    await fetchUserRooms();
+    setCurrentView('onboarding');
 
     return true;
   };
@@ -1027,6 +1029,136 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const fetchUserRooms = useCallback(async (): Promise<Couple[]> => {
+    const activeUser = user || storage.getUser();
+    if (!activeUser) return [];
+
+    const roomsMap: Record<string, Couple> = {};
+
+    // 1. Query Supabase for rooms where member_ids contains activeUser.id
+    if (isUuid(activeUser.id)) {
+      try {
+        const { data, error } = await supabase
+          .from('couples')
+          .select('*')
+          .contains('member_ids', [activeUser.id])
+          .order('created_at', { ascending: false });
+
+        if (!error && data) {
+          data.forEach((row: any) => {
+            roomsMap[row.id] = {
+              id: row.id,
+              invite_code: row.invite_code,
+              status: row.status,
+              member_ids: row.member_ids || [],
+              couple_name: row.couple_name,
+              relationship_start_date: row.relationship_start_date,
+              next_meet_date: row.next_meet_date,
+              user_city: row.user_city,
+              partner_city: row.partner_city,
+              created_at: row.created_at
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('Error fetching user rooms from Supabase:', err);
+      }
+    }
+
+    // 2. Query local couples database
+    const localCouples = storage.getCouplesDB();
+    Object.values(localCouples).forEach((c) => {
+      if (c && c.member_ids && c.member_ids.includes(activeUser.id)) {
+        if (!roomsMap[c.id]) {
+          roomsMap[c.id] = c;
+        }
+      }
+    });
+
+    const result = Object.values(roomsMap).sort((a, b) => {
+      const aT = new Date(a.created_at || 0).getTime();
+      const bT = new Date(b.created_at || 0).getTime();
+      return bT - aT;
+    });
+
+    setUserRooms(result);
+    return result;
+  }, [user]);
+
+  const switchCoupleRoom = async (coupleId: string): Promise<void> => {
+    const activeUser = user || storage.getUser();
+    if (!activeUser) return;
+
+    const updatedUser: UserProfile = { ...activeUser, couple_id: coupleId };
+    storage.saveUserToDB(updatedUser);
+    storage.setUser(updatedUser);
+    setUserState(updatedUser);
+
+    if (isUuid(activeUser.id)) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ couple_id: coupleId })
+          .eq('id', activeUser.id);
+      } catch (e) {
+        console.warn('Error updating couple_id:', e);
+      }
+      await syncRemoteSession(activeUser.id);
+    } else {
+      const targetCouple = storage.findCoupleById(coupleId);
+      if (targetCouple) {
+        storage.setCouple(targetCouple);
+        setCoupleState(targetCouple);
+      }
+    }
+
+    setCurrentView('home');
+  };
+
+  const deleteCoupleRoom = async (coupleId: string): Promise<void> => {
+    const activeUser = user || storage.getUser();
+    if (!activeUser) return;
+
+    // 1. Delete from Supabase
+    if (isUuid(coupleId)) {
+      try {
+        await supabase
+          .from('couples')
+          .delete()
+          .eq('id', coupleId);
+      } catch (e) {
+        console.warn('Error deleting couple from Supabase:', e);
+      }
+    }
+
+    // 2. Delete from local database
+    const localCouples = storage.getCouplesDB();
+    delete localCouples[coupleId];
+    try {
+      localStorage.setItem('us_couples_database', JSON.stringify(localCouples));
+    } catch {}
+
+    // 3. If currently active couple, clear active room
+    if (couple?.id === coupleId) {
+      storage.setCouple(null);
+      storage.setPartner(null);
+      setCoupleState(null);
+      setPartnerState(null);
+      const updatedUser: UserProfile = { ...activeUser, couple_id: null };
+      storage.saveUserToDB(updatedUser);
+      storage.setUser(updatedUser);
+      setUserState(updatedUser);
+
+      if (isUuid(activeUser.id)) {
+        try {
+          await supabase.from('profiles').update({ couple_id: null }).eq('id', activeUser.id);
+        } catch {}
+      }
+    }
+
+    await fetchUserRooms();
+  };
+
   const declineBoothInvite = () => {
     setBoothInviteReceived(null);
   };
@@ -1037,6 +1169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         partner,
         couple,
+        userRooms,
         isAuthenticated: !!user,
         currentView,
         setCurrentView,
@@ -1044,6 +1177,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         loginDemo,
         logout,
+        fetchUserRooms,
+        switchCoupleRoom,
+        deleteCoupleRoom,
         createCoupleRoom,
         joinCoupleRoom,
         leaveCoupleRoom,

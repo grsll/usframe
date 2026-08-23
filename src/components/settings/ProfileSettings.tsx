@@ -8,7 +8,7 @@ import { compressImage, generateInitialsAvatar } from '../../lib/utils';
 import { CoupleShareModal } from './CoupleShareModal';
 
 export const ProfileSettings: React.FC = () => {
-  const { user, partner, couple, updateUser, updateCoupleSettings, leaveCoupleRoom } = useAuth();
+  const { user, partner, couple, updateUser, updateCoupleSettings, leaveCoupleRoom, setCurrentView } = useAuth();
   const { success, error } = useToast();
 
   const [name, setName] = useState(user?.name || '');
@@ -192,16 +192,26 @@ export const ProfileSettings: React.FC = () => {
 
         {/* Action buttons */}
         <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
-          {couple && (
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
-              onClick={handleLeaveRoom}
-              className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer w-full sm:w-auto justify-center"
+              onClick={() => setCurrentView('onboarding')}
+              className="text-xs text-terracotta-600 dark:text-terracotta-400 hover:underline flex items-center gap-1.5 px-3 py-2 rounded-xl bg-terracotta-50 dark:bg-terracotta-950/60 border border-terracotta-200 dark:border-terracotta-800 transition-colors cursor-pointer font-medium"
             >
-              <Unlink className="w-3.5 h-3.5" />
-              <span>Tinggalkan / Keluar dari Ruangan Ini</span>
+              <span>📂 Hub & Riwayat Ruangan</span>
             </button>
-          )}
+
+            {couple && (
+              <button
+                type="button"
+                onClick={handleLeaveRoom}
+                className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1.5 px-3 py-2 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+              >
+                <Unlink className="w-3.5 h-3.5" />
+                <span>Tinggalkan Ruang</span>
+              </button>
+            )}
+          </div>
 
           <Button type="submit" variant="primary" className="w-full sm:w-auto ml-auto">
             Simpan Perubahan Profil
