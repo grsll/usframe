@@ -95,25 +95,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [currentView, setCurrentViewState] = useState<AppView>(() => {
     const fromUrl = getViewFromUrl();
-    if (fromUrl) return fromUrl;
-
     const savedUser = storage.getUser();
-    const savedView = storage.getCurrentView() as AppView | null;
-    
-    if (!savedUser) {
-      return (savedView === 'auth' || savedView === 'onboarding') ? savedView : 'landing';
-    }
-    
     const savedCouple = storage.getCouple();
-    if (!savedCouple) {
-      return 'onboarding';
+
+    // If not logged in, NEVER show protected or onboarding pages
+    if (!savedUser) {
+      if (fromUrl === 'auth') return 'auth';
+      return 'landing';
     }
-    
-    const validViews: AppView[] = ['home', 'memories', 'usframe', 'timeline', 'together', 'settings'];
-    if (savedView && validViews.includes(savedView)) {
-      return savedView;
+
+    // If logged in and has couple room, land on dashboard or bookmarked view
+    if (savedCouple) {
+      const validViews: AppView[] = ['home', 'memories', 'usframe', 'timeline', 'together', 'settings'];
+      if (fromUrl && validViews.includes(fromUrl)) {
+        return fromUrl;
+      }
+      return 'home';
     }
-    return 'home';
+
+    // If logged in but no couple room yet, go to onboarding
+    return 'onboarding';
   });
 
   const [pulseTriggered, setPulseTriggered] = useState<{ from: string; message: string; timestamp: number } | null>(null);
@@ -162,7 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [currentView]);
 
-  // Sync complete user, couple, and partner session from Supabase
+  // Sync complete user, couple, and partner session from Supabase & recover room history
   const syncRemoteSession = useCallback(async (userId: string): Promise<{ user: UserProfile | null; partner: UserProfile | null; couple: Couple | null }> => {
     if (!isUuid(userId)) {
       return storage.syncUserSession(userId);
@@ -176,42 +177,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .maybeSingle();
 
-      if (!profile) {
-        return { user: null, partner: null, couple: null };
-      }
+      const localUser = storage.findUserById(userId) || storage.getUser();
 
-      const currentUser: UserProfile = {
+      const currentUser: UserProfile = profile ? {
         id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        avatar: profile.photo_url || generateInitialsAvatar(profile.name),
-        couple_id: profile.couple_id || null,
+        name: profile.name || localUser?.name || 'Kamu',
+        email: profile.email || localUser?.email || '',
+        avatar: profile.photo_url || localUser?.avatar || generateInitialsAvatar(profile.name || 'Kamu'),
+        couple_id: profile.couple_id || localUser?.couple_id || null,
         current_mood: profile.current_mood || '🥰',
         mood_label: profile.mood_label || 'Siap melanjutkan kisah kita',
         status_activity: profile.status_activity || 'Santai di rumah',
-        location_name: profile.location_name,
-        created_at: profile.created_at
-      };
+        location_name: profile.location_name || localUser?.location_name,
+        created_at: profile.created_at || new Date().toISOString()
+      } : (localUser || {
+        id: userId,
+        name: 'Kamu',
+        email: '',
+        avatar: generateInitialsAvatar('Kamu'),
+        couple_id: null,
+        created_at: new Date().toISOString()
+      });
 
       storage.saveUserToDB(currentUser);
       storage.setUser(currentUser);
       setUserState(currentUser);
 
-      // 2. If user has no couple room yet
-      if (!profile.couple_id) {
-        storage.setCouple(null);
-        storage.setPartner(null);
-        setCoupleState(null);
-        setPartnerState(null);
-        return { user: currentUser, partner: null, couple: null };
+      // 2. Fetch couple room: check profile.couple_id first, then query couples where member_ids contains userId, then local cache
+      let coupleRow: any = null;
+
+      if (currentUser.couple_id && isUuid(currentUser.couple_id)) {
+        const { data } = await supabase
+          .from('couples')
+          .select('*')
+          .eq('id', currentUser.couple_id)
+          .maybeSingle();
+        coupleRow = data;
       }
 
-      // 3. Fetch couple room data from Supabase
-      const { data: coupleRow } = await supabase
-        .from('couples')
-        .select('*')
-        .eq('id', profile.couple_id)
-        .maybeSingle();
+      // If not linked yet or unlinked, search if there is any couple room in Supabase with this user as member!
+      if (!coupleRow) {
+        const { data: foundCouples } = await supabase
+          .from('couples')
+          .select('*')
+          .contains('member_ids', [userId])
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (foundCouples && foundCouples.length > 0) {
+          coupleRow = foundCouples[0];
+          // Auto-link back to profile so it's permanent across all devices!
+          currentUser.couple_id = coupleRow.id;
+          storage.saveUserToDB(currentUser);
+          storage.setUser(currentUser);
+          setUserState(currentUser);
+          try {
+            await supabase.from('profiles').update({ couple_id: coupleRow.id }).eq('id', userId);
+          } catch {}
+        }
+      }
+
+      // If still not found in Supabase, check local couple storage
+      if (!coupleRow) {
+        const localCouple = storage.getCouple() || (currentUser.couple_id ? storage.findCoupleById(currentUser.couple_id) : null);
+        if (localCouple) {
+          coupleRow = localCouple;
+        }
+      }
 
       if (!coupleRow) {
         storage.setCouple(null);
@@ -238,7 +270,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       storage.setCouple(currentCouple);
       setCoupleState(currentCouple);
 
-      // 4. Resolve partner profile from Supabase profiles table
+      // 3. Resolve partner profile from Supabase profiles table
       const partnerId = (coupleRow.member_ids || []).find((id: string) => id !== userId);
       let currentPartner: UserProfile | null = null;
 
@@ -270,8 +302,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (!currentPartner) {
-        storage.setPartner(null);
-        setPartnerState(null);
+        const localPartner = storage.getPartner();
+        if (localPartner && localPartner.id === partnerId) {
+          currentPartner = localPartner;
+        } else {
+          storage.setPartner(null);
+          setPartnerState(null);
+        }
       }
 
       return { user: currentUser, partner: currentPartner, couple: currentCouple };
@@ -288,7 +325,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (invite) {
       setCurrentView('onboarding');
     }
-  }, []);
+  }, [setCurrentView]);
 
   // Session Persistence on Boot and Auth State Listener
   useEffect(() => {
@@ -296,37 +333,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const restoreSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
-        if (session?.user?.id) {
-          const synced = await syncRemoteSession(session.user.id);
+        // Check either Supabase authenticated user or stored persistent user
+        const effectiveUserId = session?.user?.id || storage.getUser()?.id;
+
+        if (effectiveUserId && isUuid(effectiveUserId)) {
+          const synced = await syncRemoteSession(effectiveUserId);
           if (isMounted) {
             if (synced.couple) {
-              // Maintain active page or set home
               const currentSavedView = storage.getCurrentView() as AppView | null;
               const validViews: AppView[] = ['home', 'memories', 'usframe', 'timeline', 'together', 'settings'];
               if (currentSavedView && validViews.includes(currentSavedView)) {
-                setCurrentViewState(currentSavedView);
+                setCurrentView(currentSavedView);
               } else {
                 setCurrentView('home');
               }
-            } else {
+            } else if (synced.user) {
               setCurrentView('onboarding');
+            } else {
+              setCurrentView('landing');
             }
           }
         } else {
-          // If no remote Supabase session, check local storage (for demo login)
+          // Check local demo user session (Kai & Elena)
           const localUser = storage.getUser();
           if (localUser && (localUser.id === INITIAL_USER.id || localUser.id === INITIAL_PARTNER.id)) {
             const localSession = storage.syncUserSession(localUser.id);
             setUserState(localSession.user);
             setPartnerState(localSession.partner);
             setCoupleState(localSession.couple);
+            const currentSavedView = storage.getCurrentView() as AppView | null;
+            if (currentSavedView && ['home', 'memories', 'usframe', 'timeline', 'together', 'settings'].includes(currentSavedView)) {
+              setCurrentView(currentSavedView);
+            } else {
+              setCurrentView('home');
+            }
           } else {
+            // Unauthenticated guest -> ALWAYS land on landing page
             setUserState(null);
             setPartnerState(null);
             setCoupleState(null);
+            storage.setUser(null);
+            storage.setCouple(null);
+            storage.setPartner(null);
+            setCurrentView('landing');
           }
         }
       } catch (err) {
@@ -342,7 +394,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session?.user?.id) {
-          await syncRemoteSession(session.user.id);
+          const synced = await syncRemoteSession(session.user.id);
+          if (synced.couple) {
+            setCurrentView('home');
+          } else {
+            setCurrentView('onboarding');
+          }
         }
       } else if (event === 'SIGNED_OUT') {
         setUserState(null);
@@ -359,7 +416,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [syncRemoteSession]);
+  }, [syncRemoteSession, setCurrentView]);
 
   // Realtime Broadcast Channel & Database changes for Couple Room
   useEffect(() => {
