@@ -101,7 +101,10 @@ export const cloudStorage = {
     coupleId: string,
     filenamePrefix?: string
   ): Promise<{ publicUrl: string; storagePath: string }> => {
-    const safeCoupleId = isUuid(coupleId) ? coupleId : 'global_room';
+    if (!coupleId || !isUuid(coupleId)) {
+      throw new Error(`ID Ruangan (coupleId) wajib berupa UUID yang valid untuk Cloud Storage: "${coupleId}"`);
+    }
+    const safeCoupleId = coupleId;
     const photoId = generateUuid();
     const prefix = filenamePrefix ? `${filenamePrefix}_` : '';
     const storagePath = `rooms/${safeCoupleId}/memories/${prefix}${photoId}.jpg`;
@@ -153,7 +156,10 @@ export const cloudStorage = {
     fileOrDataUrl: File | Blob | string,
     userId: string
   ): Promise<string> => {
-    const safeUserId = isUuid(userId) ? userId : generateUuid();
+    if (!userId || !isUuid(userId)) {
+      throw new Error(`ID Pengguna (userId) wajib berupa UUID yang valid untuk Cloud Storage avatar: "${userId}"`);
+    }
+    const safeUserId = userId;
     const storagePath = `avatars/${safeUserId}_${Date.now()}.jpg`;
 
     try {

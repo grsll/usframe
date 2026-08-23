@@ -751,10 +751,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           invite_code: inviteCode,
           status: 'pending',
           member_ids: [effectiveUserId],
-          couple_name: params.coupleName || `Ruang ${user.name}`,
           relationship_start_date: params.relationshipStartDate || new Date().toISOString().split('T')[0],
-          next_meet_date: params.nextMeetDate || null,
-          city: roomCity,
           user_city: roomCity,
           partner_city: roomCity
         }])
@@ -1058,10 +1055,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isUuid(couple.id)) {
       try {
         await supabase.from('couples').update({
-          couple_name: updated.couple_name,
           relationship_start_date: updated.relationship_start_date,
-          next_meet_date: updated.next_meet_date,
-          city: targetCity || null,
           user_city: targetCity || null,
           partner_city: targetCity || null
         }).eq('id', couple.id);

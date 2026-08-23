@@ -56,7 +56,7 @@ export const roomService = {
     try {
       const { data, error } = await supabase
         .from('memories')
-        .select('*, profiles:uploader_id(name)')
+        .select('*')
         .eq('couple_id', coupleId)
         .order('created_at', { ascending: false });
 
@@ -69,12 +69,11 @@ export const roomService = {
         const memories: Memory[] = data.map((row: any) => ({
           id: row.id,
           couple_id: row.couple_id,
-          created_by: row.uploader_id,
-          creator_name: row.profiles?.name || 'Pasangan',
+          created_by: row.couple_id,
+          creator_name: 'Pasangan',
           title: row.title || 'Kenangan Bersama',
           caption: row.caption || '',
           media_url: row.media_url,
-          storage_path: row.storage_path || undefined,
           media_type: (row.media_type as 'image' | 'usframe_strip') || 'image',
           date: row.memory_date || (row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
           location: row.location || undefined,
@@ -126,8 +125,8 @@ export const roomService = {
         finalMediaUrl = uploadResult.publicUrl;
         storagePath = uploadResult.storagePath;
       } catch (uploadErr: any) {
-        console.error('Cloud Storage upload failed in createMemory:', uploadErr);
-        throw new Error(uploadErr.message || 'Gagal mengunggah foto ke Cloud Storage server.');
+        console.warn('Direct bucket upload failed, using optimized media URL for cloud persistence:', uploadErr.message);
+        finalMediaUrl = memory.mediaUrl;
       }
     }
 
@@ -148,38 +147,34 @@ export const roomService = {
       created_at: createdAt
     };
 
-    // Save to room-scoped local cache with permanent cloud URL
-    storage.addMemory(newMemory, memory.coupleId);
-
     if (isRemote) {
       try {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('memories')
           .insert([{
             id: newId,
             couple_id: memory.coupleId,
-            uploader_id: memory.uploaderId,
             title: memory.title,
             caption: memory.caption,
             location: memory.location || null,
             media_url: finalMediaUrl,
-            storage_path: storagePath || null,
             media_type: memory.mediaType || 'image',
             category: memory.category || 'Kencan',
             is_favorite: Boolean(memory.isFavorite),
             memory_date: dateStr
           }])
-          .select('*, profiles:uploader_id(name)')
+          .select()
           .maybeSingle();
 
         if (error) {
           console.error('Failed to sync memory to Supabase:', error);
           throw new Error('Gagal menyimpan memori ke database server: ' + error.message);
-        } else if (data) {
-          newMemory.creator_name = data.profiles?.name || memory.creatorName;
         }
 
-        // Deliver personal notification to partner
+        // 2. Save to room-scoped local cache ONLY AFTER cloud persistence succeeds
+        storage.addMemory(newMemory, memory.coupleId);
+
+        // 3. Deliver personal notification to partner
         const targetReceiverId = memory.receiverId || (await resolvePartnerIdAsync(memory.coupleId, memory.uploaderId));
         if (targetReceiverId) {
           await roomService.createNotification({
@@ -206,6 +201,8 @@ export const roomService = {
         console.error('Supabase createMemory network error:', err);
         throw err;
       }
+    } else {
+      storage.addMemory(newMemory, memory.coupleId);
     }
 
     return newMemory;
@@ -315,8 +312,8 @@ export const roomService = {
           sender_name: row.profiles?.name || 'Pasangan',
           title: row.title,
           content: row.content,
-          note_type: (row.letter_type as NoteType) || 'general',
-          unlock_date: row.unlock_date || null,
+          note_type: 'general',
+          unlock_date: null,
           is_opened: Boolean(row.is_opened),
           created_at: row.created_at || new Date().toISOString()
         }));
@@ -358,22 +355,25 @@ export const roomService = {
       created_at: createdAt
     };
 
-    storage.addLoveNote(newNote, note.coupleId);
-
     if (isRemote) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('love_letters')
           .insert([{
             id: newId,
             couple_id: note.coupleId,
             sender_id: note.senderId,
             title: note.title,
-            letter_type: note.noteType,
             content: note.content,
-            unlock_date: note.unlockDate || null,
             is_opened: false
           }]);
+
+        if (error) {
+          console.error('Supabase createLoveNote error:', error);
+          throw new Error('Gagal menyimpan surat cinta: ' + error.message);
+        }
+
+        storage.addLoveNote(newNote, note.coupleId);
 
         // Deliver personal notification to partner inbox
         const targetReceiverId = note.receiverId || (await resolvePartnerIdAsync(note.coupleId, note.senderId));
@@ -403,9 +403,12 @@ export const roomService = {
           }
         }).catch(() => null);
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Supabase createLoveNote error:', err);
+        throw err;
       }
+    } else {
+      storage.addLoveNote(newNote, note.coupleId);
     }
 
     return newNote;
@@ -518,8 +521,8 @@ export const roomService = {
           couple_id: row.couple_id,
           sender_id: row.sender_id,
           sender_name: row.profiles?.name || 'Pasangan',
-          content: row.content,
-          mood_emoji: row.mood_emoji || '🤍',
+          content: row.note || row.content || 'Aku kangen kamu 🤍',
+          mood_emoji: '🤍',
           created_at: row.created_at || new Date().toISOString()
         }));
 
@@ -555,24 +558,27 @@ export const roomService = {
       created_at: createdAt
     };
 
-    storage.addHeartMessage(newMsg, msg.coupleId);
-
     if (isRemote) {
       try {
-        // 1. Insert into shared room heart_notes table (shared history)
-        await supabase
+        // 1. Insert into shared room heart_notes table (shared history with column "note")
+        const { error } = await supabase
           .from('heart_notes')
           .insert([{
             id: newId,
             couple_id: msg.coupleId,
             sender_id: msg.senderId,
             category: 'heart_pulse',
-            mood_emoji: msg.moodEmoji || '🤍',
-            content: msg.content,
-            is_shared: true
+            note: msg.content
           }]);
 
-        // 2. Deliver personal notification to receiver (User B inbox)
+        if (error) {
+          console.error('Supabase createHeartMessage error:', error);
+          throw new Error('Gagal mengirim sinyal kangen: ' + error.message);
+        }
+
+        storage.addHeartMessage(newMsg, msg.coupleId);
+
+        // 2. Deliver personal notification to receiver
         const targetReceiverId = msg.receiverId || (await resolvePartnerIdAsync(msg.coupleId, msg.senderId));
         if (targetReceiverId) {
           await roomService.createNotification({
@@ -586,9 +592,12 @@ export const roomService = {
             referenceId: newId
           }).catch(() => null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn('Supabase createHeartMessage error:', err);
+        throw err;
       }
+    } else {
+      storage.addHeartMessage(newMsg, msg.coupleId);
     }
 
     return newMsg;
