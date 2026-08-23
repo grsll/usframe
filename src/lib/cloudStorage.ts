@@ -1,95 +1,8 @@
 import { supabase } from './supabase';
 import { generateUuid, isUuid } from './utils';
+import { imageCompression, optimizeImageBlob, dataUrlToBlob } from './imageCompression';
 
-// Helper to convert base64 / dataURL to binary Blob
-export const dataUrlToBlob = (dataUrl: string): Blob => {
-  const parts = dataUrl.split(';base64,');
-  if (parts.length === 1) {
-    return new Blob([dataUrl], { type: 'image/jpeg' });
-  }
-  const contentType = parts[0].split(':')[1] || 'image/jpeg';
-  const byteCharacters = atob(parts[1]);
-  const byteNumbers = new Uint8Array(byteCharacters.length);
-
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-
-  return new Blob([byteNumbers.buffer], { type: contentType });
-};
-
-// Client-side image optimizer before uploading to Cloud Storage (guarantees lightweight payloads < 1MB)
-export const optimizeImageBlob = async (
-  input: File | Blob | string,
-  maxWidth = 1920,
-  maxHeight = 1920,
-  quality = 0.85
-): Promise<Blob> => {
-  if (typeof window === 'undefined') {
-    if (typeof input === 'string') return dataUrlToBlob(input);
-    return input;
-  }
-
-  let srcUrl = '';
-  let needRevoke = false;
-
-  if (typeof input === 'string') {
-    srcUrl = input;
-  } else {
-    srcUrl = URL.createObjectURL(input);
-    needRevoke = true;
-  }
-
-  return new Promise<Blob>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    img.onload = () => {
-      if (needRevoke) URL.revokeObjectURL(srcUrl);
-
-      let { width, height } = img;
-
-      if (width > maxWidth || height > maxHeight) {
-        const ratio = Math.min(maxWidth / width, maxHeight / height);
-        width = Math.round(width * ratio);
-        height = Math.round(height * ratio);
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('Canvas 2D context not available.'));
-        return;
-      }
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to generate image blob from canvas.'));
-          }
-        },
-        'image/jpeg',
-        quality
-      );
-    };
-
-    img.onerror = (err) => {
-      if (needRevoke) URL.revokeObjectURL(srcUrl);
-      reject(err);
-    };
-
-    img.src = srcUrl;
-  });
-};
+export { dataUrlToBlob, optimizeImageBlob };
 
 export const cloudStorage = {
   /**
@@ -118,16 +31,21 @@ export const cloudStorage = {
     const thumbnailPath = `memories/${safeCoupleId}/thumbnails/${safeMemoryId}.webp`;
 
     try {
-      // 1. Generate full-resolution optimized blob (< 600KB)
-      const originalBlob = await optimizeImageBlob(fileOrDataUrl, 1920, 1920, 0.85);
+      // 1. Centralized Image Compression Engine (max 1600x1600 px, WebP, quality ~80%, 200-600 KB)
+      const compressed = await imageCompression.compress(fileOrDataUrl, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.80,
+        format: 'image/webp'
+      });
 
-      // 2. Generate lightweight thumbnail blob (< 35KB)
-      const thumbnailBlob = await optimizeImageBlob(fileOrDataUrl, 400, 400, 0.75);
+      // 2. Lightweight thumbnail generation (max 400x400 px, WebP, ~30-50 KB)
+      const thumb = await imageCompression.thumbnail(fileOrDataUrl, 400, 0.75);
 
       // 3. Upload original to Supabase Storage
       const { error: originalUploadError } = await supabase.storage
         .from('memories')
-        .upload(originalPath, originalBlob, {
+        .upload(originalPath, compressed.blob, {
           contentType: 'image/webp',
           upsert: true,
           cacheControl: '31536000'
@@ -149,7 +67,7 @@ export const cloudStorage = {
       // 4. Upload thumbnail to Supabase Storage
       await supabase.storage
         .from('memories')
-        .upload(thumbnailPath, thumbnailBlob, {
+        .upload(thumbnailPath, thumb.blob, {
           contentType: 'image/webp',
           upsert: true,
           cacheControl: '31536000'
@@ -193,6 +111,104 @@ export const cloudStorage = {
   },
 
   /**
+   * Uploads compressed timeline/milestone photo and thumbnail to Supabase Cloud Storage.
+   * Uses structured hierarchy: timeline/{couple_id}/{milestone_id}.webp and timeline/{couple_id}/thumbnails/{milestone_id}.webp
+   */
+  uploadTimelineMedia: async (
+    fileOrDataUrl: File | Blob | string,
+    coupleId: string,
+    milestoneId?: string
+  ): Promise<{
+    imageUrl: string;
+    thumbnailUrl: string;
+    storagePath: string;
+    thumbnailPath: string;
+  }> => {
+    if (!coupleId || !isUuid(coupleId)) {
+      throw new Error(`ID Ruangan (coupleId) wajib berupa UUID yang valid untuk Cloud Storage: "${coupleId}"`);
+    }
+
+    const safeCoupleId = coupleId;
+    const safeMilestoneId = milestoneId && isUuid(milestoneId) ? milestoneId : generateUuid();
+
+    const originalPath = `timeline/${safeCoupleId}/${safeMilestoneId}.webp`;
+    const thumbnailPath = `timeline/${safeCoupleId}/thumbnails/${safeMilestoneId}.webp`;
+
+    try {
+      // 1. Centralized Image Compression Engine (max 1600x1600 px, WebP, quality ~80%)
+      const compressed = await imageCompression.compress(fileOrDataUrl, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.80,
+        format: 'image/webp'
+      });
+
+      // 2. Lightweight thumbnail generation (max 400x400 px, WebP)
+      const thumb = await imageCompression.thumbnail(fileOrDataUrl, 400, 0.75);
+
+      // 3. Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('memories')
+        .upload(originalPath, compressed.blob, {
+          contentType: 'image/webp',
+          upsert: true,
+          cacheControl: '31536000'
+        });
+
+      if (uploadError) {
+        console.warn('Timeline storage upload warning:', uploadError.message);
+        if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
+          return {
+            imageUrl: fileOrDataUrl,
+            thumbnailUrl: fileOrDataUrl,
+            storagePath: originalPath,
+            thumbnailPath
+          };
+        }
+        throw new Error(`Gagal mengunggah foto linimasa ke Cloud Storage: ${uploadError.message}`);
+      }
+
+      await supabase.storage
+        .from('memories')
+        .upload(thumbnailPath, thumb.blob, {
+          contentType: 'image/webp',
+          upsert: true,
+          cacheControl: '31536000'
+        })
+        .catch(() => null);
+
+      const { data: originalUrlData } = supabase.storage
+        .from('memories')
+        .getPublicUrl(originalPath);
+
+      const { data: thumbUrlData } = supabase.storage
+        .from('memories')
+        .getPublicUrl(thumbnailPath);
+
+      const imageUrl = originalUrlData?.publicUrl || '';
+      const thumbnailUrl = thumbUrlData?.publicUrl || imageUrl;
+
+      return {
+        imageUrl,
+        thumbnailUrl,
+        storagePath: originalPath,
+        thumbnailPath
+      };
+    } catch (err: any) {
+      console.error('Timeline cloud storage upload error:', err);
+      if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
+        return {
+          imageUrl: fileOrDataUrl,
+          thumbnailUrl: fileOrDataUrl,
+          storagePath: originalPath,
+          thumbnailPath
+        };
+      }
+      throw err;
+    }
+  },
+
+  /**
    * Backward-compatible alias for single memory image upload.
    */
   uploadMemoryImage: async (
@@ -221,6 +237,23 @@ export const cloudStorage = {
       await supabase.storage.from('memories').remove(pathsToDelete);
     } catch (err) {
       console.warn('Storage cleanup warning:', err);
+    }
+  },
+
+  /**
+   * Deletes a timeline milestone image and its thumbnail from Supabase Cloud Storage.
+   */
+  deleteTimelineMedia: async (storagePath?: string, thumbnailPath?: string): Promise<void> => {
+    const pathsToDelete: string[] = [];
+    if (storagePath) pathsToDelete.push(storagePath);
+    if (thumbnailPath) pathsToDelete.push(thumbnailPath);
+
+    if (pathsToDelete.length === 0) return;
+
+    try {
+      await supabase.storage.from('memories').remove(pathsToDelete);
+    } catch (err) {
+      console.warn('Timeline storage cleanup warning:', err);
     }
   },
 

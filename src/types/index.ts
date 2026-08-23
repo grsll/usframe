@@ -96,6 +96,9 @@ export type Milestone = {
   date: string;
   location?: string;
   image_url?: string;
+  thumbnail_url?: string;
+  storage_path?: string;
+  thumbnail_path?: string;
   category: string;
   created_at: string;
 };

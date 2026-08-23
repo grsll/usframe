@@ -140,6 +140,10 @@ CREATE TABLE IF NOT EXISTS public.milestones (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+ALTER TABLE public.milestones ADD COLUMN IF NOT EXISTS storage_path TEXT;
+ALTER TABLE public.milestones ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
+ALTER TABLE public.milestones ADD COLUMN IF NOT EXISTS thumbnail_path TEXT;
+
 -- 8. Countdowns
 CREATE TABLE IF NOT EXISTS public.countdowns (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

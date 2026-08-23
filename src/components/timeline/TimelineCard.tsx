@@ -51,10 +51,11 @@ export const TimelineCard: React.FC<TimelineCardProps> = ({ milestone, isLast })
           {milestone.image_url && (
             <div className="relative rounded-xl sm:rounded-2xl overflow-hidden aspect-[16/9] sm:aspect-[21/9] bg-stone-900 shadow-xs">
               <img
-                src={milestone.image_url}
+                src={milestone.thumbnail_url || milestone.image_url}
                 alt={milestone.title}
                 className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
                 loading="lazy"
+                decoding="async"
               />
             </div>
           )}

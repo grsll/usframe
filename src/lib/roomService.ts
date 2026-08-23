@@ -705,6 +705,9 @@ export const roomService = {
           date: row.date || (row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
           location: row.location || undefined,
           image_url: row.image_url || undefined,
+          thumbnail_url: row.thumbnail_url || row.image_url || undefined,
+          storage_path: row.storage_path || undefined,
+          thumbnail_path: row.thumbnail_path || undefined,
           category: row.category || 'dating',
           created_at: row.created_at || new Date().toISOString()
         }));
@@ -726,6 +729,9 @@ export const roomService = {
     date: string;
     location?: string;
     imageUrl?: string;
+    thumbnailUrl?: string;
+    storagePath?: string;
+    thumbnailPath?: string;
     category?: string;
   }): Promise<Milestone> => {
     const isRemote = isRemoteCouple(m.coupleId);
@@ -733,16 +739,26 @@ export const roomService = {
     const createdAt = new Date().toISOString();
 
     let finalImageUrl = m.imageUrl;
+    let finalThumbnailUrl = m.thumbnailUrl || m.imageUrl;
+    let finalStoragePath = m.storagePath;
+    let finalThumbnailPath = m.thumbnailPath;
+
     if (isRemote && m.imageUrl && (m.imageUrl.startsWith('data:') || m.imageUrl.startsWith('blob:'))) {
       try {
-        const uploadResult = await (await import('./cloudStorage')).cloudStorage.uploadMemoryImage(
+        const { cloudStorage } = await import('./cloudStorage');
+        const uploadResult = await cloudStorage.uploadTimelineMedia(
           m.imageUrl,
           m.coupleId,
-          'milestone'
+          newId
         );
-        finalImageUrl = uploadResult.publicUrl;
+        finalImageUrl = uploadResult.imageUrl;
+        finalThumbnailUrl = uploadResult.thumbnailUrl;
+        finalStoragePath = uploadResult.storagePath;
+        finalThumbnailPath = uploadResult.thumbnailPath;
       } catch (err) {
         console.warn('Milestone image upload warning:', err);
+        finalImageUrl = m.imageUrl;
+        finalThumbnailUrl = m.imageUrl;
       }
     }
 
@@ -754,15 +770,16 @@ export const roomService = {
       date: m.date,
       location: m.location,
       image_url: finalImageUrl,
+      thumbnail_url: finalThumbnailUrl,
+      storage_path: finalStoragePath,
+      thumbnail_path: finalThumbnailPath,
       category: m.category || 'dating',
       created_at: createdAt
     };
 
-    storage.addMilestone(newMilestone, m.coupleId);
-
     if (isRemote) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('milestones')
           .insert([{
             id: newId,
@@ -772,8 +789,22 @@ export const roomService = {
             date: m.date,
             location: m.location || null,
             image_url: finalImageUrl || null,
+            thumbnail_url: finalThumbnailUrl || null,
+            storage_path: finalStoragePath || null,
+            thumbnail_path: finalThumbnailPath || null,
             category: m.category || 'dating'
           }]);
+
+        if (error) {
+          console.error('Supabase createMilestone insert error:', error);
+          if (finalStoragePath || finalThumbnailPath) {
+            const { cloudStorage } = await import('./cloudStorage');
+            cloudStorage.deleteTimelineMedia(finalStoragePath, finalThumbnailPath).catch(() => null);
+          }
+          throw new Error('Gagal menyimpan momen ke database: ' + error.message);
+        }
+
+        storage.addMilestone(newMilestone, m.coupleId);
 
         const channel = supabase.channel(`couple_room_${m.coupleId}`);
         channel.send({
@@ -784,7 +815,10 @@ export const roomService = {
 
       } catch (err) {
         console.error('Supabase createMilestone error:', err);
+        throw err;
       }
+    } else {
+      storage.addMilestone(newMilestone, m.coupleId);
     }
 
     return newMilestone;
@@ -792,6 +826,7 @@ export const roomService = {
 
   deleteMilestone: async (id: string, coupleId?: string | null): Promise<void> => {
     const list = storage.getMilestones(coupleId);
+    const target = list.find(m => m.id === id);
     const updated = list.filter(m => m.id !== id);
     storage.setMilestones(updated, coupleId);
 
@@ -801,6 +836,11 @@ export const roomService = {
           .from('milestones')
           .delete()
           .eq('id', id);
+
+        if (target?.storage_path || target?.thumbnail_path) {
+          const { cloudStorage } = await import('./cloudStorage');
+          cloudStorage.deleteTimelineMedia(target.storage_path, target.thumbnail_path).catch(() => null);
+        }
 
         const channel = supabase.channel(`couple_room_${coupleId}`);
         channel.send({

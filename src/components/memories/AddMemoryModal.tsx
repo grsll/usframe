@@ -3,10 +3,11 @@ import { Modal } from '../layout/Modal';
 import { Input, Textarea } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { Memory } from '../../types';
-import { Upload, Heart } from 'lucide-react';
+import { Upload, Heart, Sparkles, Loader2, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { isUuid, generateUuid } from '../../lib/utils';
+import { imageCompression, formatFileSize } from '../../lib/imageCompression';
 
 interface AddMemoryModalProps {
   isOpen: boolean;
@@ -29,24 +30,59 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
   const [category, setCategory] = useState<string>('Kencan');
   const [mediaUrl, setMediaUrl] = useState('');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [compressionStats, setCompressionStats] = useState<{
+    originalSize: number;
+    compressedSize: number;
+    reductionPercent: number;
+  } | null>(null);
 
   const categories = ['Kencan', 'Perjalanan', 'Sehari-hari', 'Momen Spesial', 'Photobooth'];
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        setMediaUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        errorToast('Format file tidak didukung. Harap pilih gambar (JPG, PNG, WebP).');
+        return;
+      }
+
+      setIsCompressing(true);
+      setCompressionStats(null);
+
+      try {
+        // Centralized Auto Compression (max 1600x1600 px, WebP, quality ~80%)
+        const res = await imageCompression.compress(file, {
+          maxWidth: 1600,
+          maxHeight: 1600,
+          quality: 0.80,
+          format: 'image/webp'
+        });
+
+        setMediaUrl(res.dataUrl);
+        setCompressionStats({
+          originalSize: res.originalSize,
+          compressedSize: res.compressedSize,
+          reductionPercent: res.reductionPercent
+        });
+      } catch (err: any) {
+        console.error('Image compression error:', err);
+        errorToast('Gagal memproses gambar. Menggunakan file asli.');
+        const reader = new FileReader();
+        reader.onload = () => setMediaUrl(reader.result as string);
+        reader.readAsDataURL(file);
+      } finally {
+        setIsCompressing(false);
+      }
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !mediaUrl || isUploading) return;
+    if (!title || !mediaUrl || isUploading || isCompressing) return;
 
     setIsUploading(true);
 
@@ -68,7 +104,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
       };
 
       await onAddMemory(newMem);
-      success('Kenangan berhasil diunggah dan disimpan ke cloud brankas! 🤍');
+      success('Kenangan berhasil dioptimalkan dan disimpan ke cloud brankas! 🤍');
       onClose();
 
       // Reset Form
@@ -76,6 +112,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
       setCaption('');
       setLocation('');
       setMediaUrl('');
+      setCompressionStats(null);
       setIsFavorite(false);
     } catch (err: any) {
       console.error('Add memory failed:', err);
@@ -101,27 +138,53 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
             Foto Kenangan
           </label>
 
-          {mediaUrl ? (
-            <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-stone-900 border border-border group">
-              <img src={mediaUrl} alt="Preview" className="w-full h-full object-cover" />
-              <button
-                type="button"
-                onClick={() => setMediaUrl('')}
-                className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/70 text-white text-xs font-medium backdrop-blur-md hover:bg-black cursor-pointer"
-              >
-                Ganti Foto
-              </button>
+          {isCompressing ? (
+            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-terracotta-300 rounded-2xl bg-terracotta-50/50 dark:bg-terracotta-950/20">
+              <Loader2 className="w-8 h-8 text-terracotta-500 animate-spin mb-2" />
+              <span className="text-sm font-semibold text-foreground">Mengoptimalkan foto...</span>
+              <span className="text-xs text-foreground-muted mt-0.5">Menyesuaikan ukuran & mengompres ke WebP hemat storage</span>
+            </div>
+          ) : mediaUrl ? (
+            <div className="space-y-2">
+              <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-stone-900 border border-border group">
+                <img src={mediaUrl} alt="Preview" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMediaUrl('');
+                    setCompressionStats(null);
+                  }}
+                  className="absolute top-3 right-3 px-3 py-1.5 rounded-xl bg-black/70 text-white text-xs font-medium backdrop-blur-md hover:bg-black cursor-pointer"
+                >
+                  Ganti Foto
+                </button>
+              </div>
+
+              {compressionStats && compressionStats.reductionPercent > 0 && (
+                <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-800 dark:text-emerald-200">
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>Auto-Compressed:</span>
+                    <span className="line-through text-emerald-600/70">{formatFileSize(compressionStats.originalSize)}</span>
+                    <span>→</span>
+                    <span className="font-bold">{formatFileSize(compressionStats.compressedSize)}</span>
+                  </div>
+                  <span className="font-bold px-1.5 py-0.5 rounded-md bg-emerald-200 dark:bg-emerald-800 text-[10px]">
+                    Hemat {compressionStats.reductionPercent}%
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <label className="flex flex-col items-center justify-center p-6 sm:p-8 border-2 border-dashed border-border hover:border-terracotta-400 rounded-2xl bg-surface-subtle/50 cursor-pointer transition-colors">
               <Upload className="w-7 h-7 text-terracotta-500 mb-1.5" />
               <span className="text-xs sm:text-sm font-semibold text-foreground">Unggah foto dari perangkat</span>
-              <span className="text-[11px] text-foreground-muted mt-0.5">JPG, PNG, WebP didukung</span>
+              <span className="text-[11px] text-foreground-muted mt-0.5">Otomatis dioptimalkan ke WebP hemat storage</span>
               <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
             </label>
           )}
 
-          {!mediaUrl && (
+          {!mediaUrl && !isCompressing && (
             <div className="pt-1">
               <Input
                 placeholder="Atau tempel URL gambar langsung..."
