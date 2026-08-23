@@ -222,6 +222,35 @@ export const ProfileSettings: React.FC = () => {
           </div>
         </div>
 
+        {/* PWA App Install Settings */}
+        <div className="p-4 rounded-2xl bg-surface-subtle border border-border space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <span>📲 Pasang Aplikasi ke Beranda (PWA)</span>
+              </h4>
+              <p className="text-xs text-foreground-muted">
+                Jadikan USFRAME sebagai aplikasi mandiri di layar utama HP / Desktop tanpa bilah browser.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+                if (isIOS) {
+                  alert("Untuk memasang di iPhone/iPad:\n1. Ketuk tombol Bagikan (Share) di Safari\n2. Pilih 'Tambahkan ke Layar Utama' (Add to Home Screen) 📲");
+                } else {
+                  alert("Untuk memasang di Android/Desktop:\nKetuk ikon menu browser (titik tiga) lalu pilih 'Pasang Aplikasi' atau 'Tambahkan ke Layar Utama' 📲");
+                }
+              }}
+              className="px-3 py-1.5 rounded-xl bg-surface border border-border hover:bg-terracotta-50 dark:hover:bg-terracotta-950/60 text-foreground text-xs font-semibold transition-colors cursor-pointer shadow-2xs shrink-0 flex items-center gap-1.5 justify-center"
+            >
+              <span>📲 Petunjuk Pasang ke HP</span>
+            </button>
+          </div>
+        </div>
+
         {/* Action buttons */}
         <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">

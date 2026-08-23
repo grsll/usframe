@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="terracottaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E06D4A" />
+      <stop offset="50%" stop-color="#D95D39" />
+      <stop offset="100%" stop-color="#B84222" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.25" />
+    </filter>
+  </defs>
+  
+  <!-- Rounded Base Canvas -->
+  <rect width="512" height="512" rx="128" fill="url(#terracottaGrad)" />
+  
+  <!-- Subtle Inner Border -->
+  <rect x="24" y="24" width="464" height="464" rx="104" fill="none" stroke="#FFFFFF" stroke-opacity="0.2" stroke-width="6" />
+
+  <!-- Photostrip Frame Graphic -->
+  <g filter="url(#shadow)">
+    <!-- Photostrip Card -->
+    <rect x="116" y="96" width="280" height="320" rx="36" fill="#FAF8F5" />
+    
+    <!-- Top photo window -->
+    <rect x="144" y="124" width="224" height="130" rx="20" fill="#292524" />
+    
+    <!-- Heart in Top Window -->
+    <path d="M256 210 C256 210 200 174 200 152 C200 138 212 128 226 128 C238 128 248 136 256 146 C264 136 274 128 286 128 C300 128 312 138 312 152 C312 174 256 210 256 210 Z" fill="#D95D39" />
+
+    <!-- US Brand Text -->
+    <text x="256" y="320" font-family="'Playfair Display', Georgia, serif" font-size="52" font-weight="700" fill="#1C1917" text-anchor="middle" letter-spacing="4">US</text>
+    
+    <!-- Subtitle -->
+    <text x="256" y="356" font-family="'Plus Jakarta Sans', sans-serif" font-size="16" font-weight="600" fill="#78716C" text-anchor="middle" letter-spacing="3">PHOTOBOOTH</text>
+
+    <!-- Dot Accents -->
+    <circle cx="180" cy="385" r="4" fill="#D95D39" />
+    <circle cx="256" cy="385" r="4" fill="#D95D39" />
+    <circle cx="332" cy="385" r="4" fill="#D95D39" />
+  </g>
+</svg>

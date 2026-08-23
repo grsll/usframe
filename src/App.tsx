@@ -13,6 +13,7 @@ import { USFramePage } from './pages/USFramePage';
 import { TimelinePage } from './pages/TimelinePage';
 import { TogetherPage } from './pages/TogetherPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { PWAInstallBanner } from './components/ui/PWAInstallBanner';
 import { Heart, X, Camera, Sparkles } from 'lucide-react';
 import { Button } from './components/ui/Button';
 
@@ -125,6 +126,9 @@ const AppContent: React.FC = () => {
         {currentView === 'together' && <TogetherPage />}
         {currentView === 'settings' && <SettingsPage />}
       </main>
+
+      {/* Progressive Web App (PWA) Install to Home Screen Prompt */}
+      <PWAInstallBanner />
 
     </div>
   );
