@@ -22,12 +22,22 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
   const [myAnswer, setMyAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const userId = user?.id || 'user_kai';
-  const partnerId = partner?.id || 'user_elena';
+  const userId = user?.id || '';
+  const partnerId = partner?.id || '';
 
   const answers = dailyQuestion?.answers || {};
-  const hasMyAnswer = !!answers[userId];
-  const hasPartnerAnswer = !!answers[partnerId];
+
+  // Resilient answer extraction for both users
+  const myAnswerEntry = (userId ? answers[userId] : null) || 
+    Object.entries(answers).find(([k, v]) => k === userId || (user?.name && v.userName === user.name))?.[1];
+
+  const partnerAnswerEntry = (partnerId ? answers[partnerId] : null) || 
+    Object.entries(answers).find(([k, v]) => 
+      (userId ? k !== userId : true) && (k === partnerId || (user?.name && v.userName !== user.name))
+    )?.[1];
+
+  const hasMyAnswer = !!myAnswerEntry?.answer;
+  const hasPartnerAnswer = !!partnerAnswerEntry?.answer;
   const bothAnswered = hasMyAnswer && hasPartnerAnswer;
 
   const handleSubmitAnswer = async (e: React.FormEvent) => {
@@ -35,20 +45,24 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
     if (!myAnswer.trim()) return;
 
     setIsSubmitting(true);
-    await roomService.submitDailyQuestionAnswer(
-      couple?.id || 'couple_main',
-      userId,
-      user?.name || 'Kai',
-      myAnswer.trim(),
-      dailyQuestion?.question,
-      dailyQuestion?.date
-    );
+    try {
+      await roomService.submitDailyQuestionAnswer(
+        couple?.id || 'couple_main',
+        user?.id || 'user_main',
+        user?.name || 'Kamu',
+        myAnswer.trim(),
+        dailyQuestion?.question,
+        dailyQuestion?.date
+      );
 
-    playSuccessChime();
-    confetti({ particleCount: 30, spread: 50 });
-    success('Jawaban dibagikan kepada pasanganmu! 🤍');
-    setIsSubmitting(false);
-    onUpdate();
+      playSuccessChime();
+      confetti({ particleCount: 30, spread: 50 });
+      success('Jawaban dibagikan kepada pasanganmu! 🤍');
+      setMyAnswer('');
+      onUpdate();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -94,7 +108,7 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
           <div className="flex justify-end">
             <Button type="submit" variant="primary" disabled={isSubmitting || !myAnswer.trim()}>
               <Send className="w-4 h-4 mr-2" />
-              <span>Bagikan Jawaban</span>
+              <span>{isSubmitting ? 'Membagikan...' : 'Bagikan Jawaban'}</span>
             </Button>
           </div>
         </form>
@@ -106,12 +120,12 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
             <div className="p-3.5 sm:p-4 rounded-2xl bg-terracotta-50/50 dark:bg-terracotta-950/40 border border-terracotta-200/80 dark:border-terracotta-800/80 space-y-1.5 sm:space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-terracotta-800 dark:text-terracotta-200">
-                  {user?.name || 'Kamu'}
+                  {user?.name || myAnswerEntry?.userName || 'Kamu'}
                 </span>
                 <span className="text-[10px] text-foreground-subtle">Dibagikan</span>
               </div>
               <p className="text-xs sm:text-sm text-foreground leading-relaxed italic">
-                "{answers[userId]?.answer}"
+                "{myAnswerEntry?.answer}"
               </p>
             </div>
 
@@ -119,22 +133,22 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
             <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-subtle border border-border space-y-1.5 sm:space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-foreground">
-                  {partner?.name || 'Elena'}
+                  {partner?.name || partnerAnswerEntry?.userName || 'Pasangan'}
                 </span>
                 <span className="text-[10px] text-foreground-subtle">
                   {hasPartnerAnswer ? 'Dibagikan' : 'Sedang menulis...'}
                 </span>
               </div>
 
-              {hasPartnerAnswer && partnerId ? (
+              {hasPartnerAnswer && partnerAnswerEntry?.answer ? (
                 <p className="text-xs sm:text-sm text-foreground leading-relaxed italic">
-                  "{answers[partnerId]?.answer}"
+                  "{partnerAnswerEntry.answer}"
                 </p>
               ) : (
                 <div className="py-3 text-center text-xs text-foreground-muted">
                   {partner?.name
                     ? `Menunggu ${partner.name} menjawab untuk membuka kunci!`
-                    : 'Belum ada pasangan terhubung. Undang pasanganmu untuk saling berbagi jawaban!'}
+                    : 'Menunggu pasangan menjawab untuk membuka kunci!'}
                 </div>
               )}
             </div>

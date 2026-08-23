@@ -1199,37 +1199,65 @@ export const roomService = {
   fetchDailyQuestion: async (coupleId?: string | null, dateStr?: string): Promise<DailyQuestion> => {
     const today = dateStr || new Date().toISOString().split('T')[0];
 
-    if (!coupleId || !isRemoteCouple(coupleId)) {
-      return storage.getDailyQuestion(coupleId);
-    }
+    const localDq = storage.getDailyQuestion(coupleId);
+    let mergedAnswers: Record<string, { userName: string; answer: string; answeredAt: string }> = {
+      ...(localDq?.answers || {})
+    };
 
-    try {
-      const { data, error } = await supabase
-        .from('daily_questions')
-        .select('*')
-        .eq('couple_id', coupleId)
-        .eq('question_date', today)
-        .maybeSingle();
+    if (coupleId && isRemoteCouple(coupleId)) {
+      try {
+        // 1. Fetch answers stored from all couple members' profiles in cloud DB
+        const { data: members } = await supabase
+          .from('profiles')
+          .select('id, name, status_activity')
+          .eq('couple_id', coupleId);
 
-      if (data) {
-        const dq: DailyQuestion = {
-          id: data.id,
-          couple_id: data.couple_id,
-          date: data.question_date,
-          question: data.question,
-          answers: data.answers || {}
-        };
-        storage.setDailyQuestion(dq, coupleId);
-        return dq;
-      } else {
-        const localDq = storage.getDailyQuestion(coupleId);
-        return localDq;
+        if (members && members.length > 0) {
+          for (const m of members) {
+            if (m.status_activity && m.status_activity.startsWith('DQ:')) {
+              try {
+                const parsed = JSON.parse(m.status_activity.substring(3));
+                if (parsed.date === today && parsed.answer) {
+                  mergedAnswers[m.id] = {
+                    userName: m.name || 'Pasangan',
+                    answer: parsed.answer,
+                    answeredAt: parsed.answeredAt || new Date().toISOString()
+                  };
+                }
+              } catch {}
+            }
+          }
+        }
+
+        // 2. Also try fetching from daily_questions table if present
+        const { data: tableData } = await supabase
+          .from('daily_questions')
+          .select('*')
+          .eq('couple_id', coupleId)
+          .eq('question_date', today)
+          .maybeSingle();
+
+        if (tableData?.answers) {
+          mergedAnswers = {
+            ...mergedAnswers,
+            ...tableData.answers
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase fetch daily question sync warning:', err);
       }
-    } catch (err) {
-      console.warn('Supabase fetch daily question error:', err);
     }
 
-    return storage.getDailyQuestion(coupleId);
+    const finalDq: DailyQuestion = {
+      id: localDq?.id || 'dq_' + today,
+      couple_id: coupleId || 'couple_main',
+      date: today,
+      question: localDq?.question || 'Hal kecil apa dari pasanganmu yang paling kamu syukuri hari ini?',
+      answers: mergedAnswers
+    };
+
+    storage.setDailyQuestion(finalDq, coupleId);
+    return finalDq;
   },
 
   submitDailyQuestionAnswer: async (
@@ -1243,21 +1271,22 @@ export const roomService = {
     const today = dateStr || new Date().toISOString().split('T')[0];
     const isRemote = isRemoteCouple(coupleId);
 
-    const current = storage.getDailyQuestion(coupleId);
+    // Fetch existing answers first to merge seamlessly without overwriting partner
+    const existing = await roomService.fetchDailyQuestion(coupleId, today);
     const updatedAnswers = {
-      ...(current.answers || {}),
+      ...(existing.answers || {}),
       [userId]: {
         userName,
-        answer,
+        answer: answer.trim(),
         answeredAt: new Date().toISOString()
       }
     };
 
     const updatedDq: DailyQuestion = {
-      ...current,
+      ...existing,
       couple_id: coupleId,
       date: today,
-      question: questionText || current.question || 'Hal kecil apa dari pasanganmu yang paling kamu syukuri hari ini?',
+      question: questionText || existing.question || 'Hal kecil apa dari pasanganmu yang paling kamu syukuri hari ini?',
       answers: updatedAnswers
     };
 
@@ -1265,20 +1294,41 @@ export const roomService = {
 
     if (isRemote) {
       try {
-        await supabase
-          .from('daily_questions')
-          .upsert({
-            couple_id: coupleId,
-            question_date: today,
-            question: updatedDq.question,
-            answers: updatedAnswers
-          }, { onConflict: 'couple_id,question_date' });
+        // 1. Save user's answer into profiles.status_activity in cloud DB (100% persistent cross-device)
+        const dqPayload = 'DQ:' + JSON.stringify({
+          date: today,
+          answer: answer.trim(),
+          answeredAt: new Date().toISOString()
+        });
 
+        await supabase
+          .from('profiles')
+          .update({ status_activity: dqPayload })
+          .eq('id', userId);
+
+        // 2. Also try daily_questions table if accessible
+        try {
+          await supabase
+            .from('daily_questions')
+            .upsert({
+              couple_id: coupleId,
+              question_date: today,
+              question: updatedDq.question,
+              answers: updatedAnswers
+            }, { onConflict: 'couple_id,question_date' });
+        } catch {}
+
+        // 3. Broadcast instant Realtime sync to partner's screen
         const channel = supabase.channel(`couple_room_${coupleId}`);
         channel.send({
           type: 'broadcast',
-          event: 'room_data_changed',
-          payload: { type: 'daily_question_answered', userId, userName }
+          event: 'daily_question_sync',
+          payload: {
+            coupleId,
+            userId,
+            userName,
+            dailyQuestion: updatedDq
+          }
         }).catch(() => null);
 
       } catch (err) {
@@ -1300,24 +1350,40 @@ export const roomService = {
     if (!isRemoteCouple(coupleId)) return () => {};
 
     const channel = supabase
-      .channel(`realtime_dq_${coupleId}`)
+      .channel(`couple_room_${coupleId}`)
+      .on('broadcast', { event: 'daily_question_sync' }, (payload) => {
+        if (payload.payload?.dailyQuestion) {
+          const remoteDq = payload.payload.dailyQuestion;
+          const currentLocal = storage.getDailyQuestion(coupleId);
+          const mergedAnswers = {
+            ...(currentLocal?.answers || {}),
+            ...(remoteDq.answers || {})
+          };
+          const mergedDq = {
+            ...remoteDq,
+            answers: mergedAnswers
+          };
+          storage.setDailyQuestion(mergedDq, coupleId);
+          onUpdate();
+        }
+      })
+      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
+        if (payload.payload?.type?.startsWith('daily_question')) {
+          onUpdate();
+        }
+      })
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'daily_questions',
+          table: 'profiles',
           filter: `couple_id=eq.${coupleId}`
         },
         () => {
           onUpdate();
         }
       )
-      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
-        if (payload.payload?.type?.startsWith('daily_question')) {
-          onUpdate();
-        }
-      })
       .subscribe();
 
     return () => {
