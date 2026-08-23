@@ -4,13 +4,123 @@ import { useToast } from '../../context/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { USFramePhoto } from '../../types';
 import { playShutterSound, playSuccessChime } from '../../lib/utils';
-import { Camera, RefreshCw, UserPlus, Users, Sparkles, AlertCircle, Heart, CheckCircle2, Play } from 'lucide-react';
+import { Camera, RefreshCw, UserPlus, Users, Sparkles, AlertCircle, Heart, CheckCircle2, Play, FlipHorizontal } from 'lucide-react';
 import { Button } from '../ui/Button';
 import confetti from 'canvas-confetti';
 
 interface USFrameLiveDuoProps {
   onCompleteSession: (photos: USFramePhoto[]) => void;
   onCancel: () => void;
+}
+
+// Helper to draw image with object-fit: cover onto canvas
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+) {
+  const imgRatio = (img.width || 1) / (img.height || 1);
+  const targetRatio = w / h;
+  let sx = 0, sy = 0, sw = img.width || 1, sh = img.height || 1;
+
+  if (imgRatio > targetRatio) {
+    sw = img.height * targetRatio;
+    sx = (img.width - sw) / 2;
+  } else {
+    sh = img.width / targetRatio;
+    sy = (img.height - sh) / 2;
+  }
+
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+}
+
+// Helper to merge Left and Right photos into 1 split-duo image
+async function createSplitDuoFrame(
+  leftDataUrl: string,
+  rightDataUrl: string,
+  leftLabel: string,
+  rightLabel: string
+): Promise<string> {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1200;
+    canvas.height = 800;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      resolve(leftDataUrl);
+      return;
+    }
+
+    const imgLeft = new Image();
+    const imgRight = new Image();
+    let loaded = 0;
+
+    const onBothLoaded = () => {
+      // Left 50% (Me)
+      drawImageCover(ctx, imgLeft, 0, 0, 600, 800);
+      // Right 50% (Partner)
+      drawImageCover(ctx, imgRight, 600, 0, 600, 800);
+
+      // Center Divider line
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(600, 0);
+      ctx.lineTo(600, 800);
+      ctx.stroke();
+
+      // Subtle Center Heart Emblem
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(600, 400, 22, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#D95D39';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('🤍', 600, 406);
+
+      // Left badge (city / name)
+      if (leftLabel) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.beginPath();
+        ctx.roundRect(20, 735, ctx.measureText(leftLabel).width + 30, 42, 12);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 17px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(leftLabel, 35, 762);
+      }
+
+      // Right badge (city / name)
+      if (rightLabel) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        const w = ctx.measureText(rightLabel).width + 30;
+        ctx.beginPath();
+        ctx.roundRect(1180 - w, 735, w, 42, 12);
+        ctx.fill();
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '600 17px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(rightLabel, 1165, 762);
+      }
+
+      resolve(canvas.toDataURL('image/jpeg', 0.95));
+    };
+
+    imgLeft.crossOrigin = 'anonymous';
+    imgRight.crossOrigin = 'anonymous';
+    imgLeft.onload = () => { loaded++; if (loaded === 2) onBothLoaded(); };
+    imgRight.onload = () => { loaded++; if (loaded === 2) onBothLoaded(); };
+    imgLeft.onerror = () => { loaded++; if (loaded === 2) onBothLoaded(); };
+    imgRight.onerror = () => { loaded++; if (loaded === 2) onBothLoaded(); };
+
+    imgLeft.src = leftDataUrl;
+    imgRight.src = rightDataUrl;
+  });
 }
 
 export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
@@ -33,14 +143,38 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
   const [partnerOnline, setPartnerOnline] = useState<boolean>(false);
   const [isInviting, setIsInviting] = useState<boolean>(false);
 
+  // 4-Shot Photobooth Session State
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isFlashing, setIsFlashing] = useState<boolean>(false);
-  const [shotStep, setShotStep] = useState<number>(0); // 0 = ready, 1 = shot 1 taken, 2 = all done
-  const [localSnapshots, setLocalSnapshots] = useState<string[]>([]);
-  const [remoteSnapshots, setRemoteSnapshots] = useState<string[]>([]);
+  const [isSessionActive, setIsSessionActive] = useState<boolean>(false);
+  const [currentPose, setCurrentPose] = useState<number>(0);
+  const [capturedDuoPhotos, setCapturedDuoPhotos] = useState<USFramePhoto[]>([]);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const previewIntervalRef = useRef<number | null>(null);
+  const latestRemotePhotoRef = useRef<string | null>(null);
+
+  // Stop camera tracks and clean up video elements
+  const stopCamera = useCallback(() => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
+      setLocalStream(null);
+    }
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = null;
+    }
+    if (previewIntervalRef.current) {
+      clearInterval(previewIntervalRef.current);
+      previewIntervalRef.current = null;
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+  }, [localStream]);
 
   // Initialize Local Webcam
   const startCamera = async (mode: 'user' | 'environment' = facingMode) => {
@@ -67,13 +201,6 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
-
-      // Add tracks to WebRTC peer connection if active
-      if (peerConnectionRef.current) {
-        stream.getTracks().forEach(track => {
-          peerConnectionRef.current?.addTrack(track, stream);
-        });
-      }
     } catch (err: any) {
       console.warn('Camera stream error:', err);
       setCameraError('Izin kamera belum diberikan atau kamera sedang digunakan aplikasi lain.');
@@ -84,19 +211,11 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
     startCamera(facingMode);
 
     return () => {
-      if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
-      }
-      if (previewIntervalRef.current) {
-        clearInterval(previewIntervalRef.current);
-      }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
+      stopCamera();
     };
   }, [facingMode]);
 
-  // Capture single local frame
+  // Capture single local frame from video element
   const captureLocalFrame = (): string => {
     if (localVideoRef.current && localVideoRef.current.videoWidth) {
       const video = localVideoRef.current;
@@ -116,13 +235,13 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
     return user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800';
   };
 
-  // Realtime Broadcast Channel & WebRTC Signaling
+  // Realtime Broadcast Channel & Continuous Video Sync
   useEffect(() => {
     if (!couple?.id) return;
 
     const channel = supabase.channel(`couple_room_${couple.id}`);
 
-    // Create RTCPeerConnection
+    // Create RTCPeerConnection for WebRTC video
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -152,14 +271,12 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
     };
 
     channel
-      // 1. Partner joins booth
       .on('broadcast', { event: 'booth_join' }, async (payload) => {
         if (payload.payload?.senderId !== user?.id) {
           setPartnerOnline(true);
           setIsInviting(false);
           info(`${payload.payload?.name || 'Pasangan'} telah masuk ke kamera studio! 📸`);
 
-          // As initiator, create offer
           if (localStream) {
             localStream.getTracks().forEach(track => {
               try { pc.addTrack(track, localStream); } catch {}
@@ -174,7 +291,6 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
           }
         }
       })
-      // 2. WebRTC Offer
       .on('broadcast', { event: 'booth_webrtc_offer' }, async (payload) => {
         if (payload.payload?.senderId !== user?.id && payload.payload?.offer) {
           setPartnerOnline(true);
@@ -193,13 +309,11 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
           }).catch(() => null);
         }
       })
-      // 3. WebRTC Answer
       .on('broadcast', { event: 'booth_webrtc_answer' }, async (payload) => {
         if (payload.payload?.senderId !== user?.id && payload.payload?.answer) {
           await pc.setRemoteDescription(new RTCSessionDescription(payload.payload.answer));
         }
       })
-      // 4. WebRTC ICE Candidates
       .on('broadcast', { event: 'booth_webrtc_ice' }, async (payload) => {
         if (payload.payload?.senderId !== user?.id && payload.payload?.candidate) {
           try {
@@ -207,26 +321,24 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
           } catch {}
         }
       })
-      // 5. Fallback Periodic Snapshot Stream
       .on('broadcast', { event: 'booth_preview_frame' }, (payload) => {
         if (payload.payload?.senderId !== user?.id && payload.payload?.dataUrl) {
           setRemoteFallbackImg(payload.payload.dataUrl);
+          latestRemotePhotoRef.current = payload.payload.dataUrl;
           setPartnerOnline(true);
         }
       })
-      // 6. Synchronized 3-2-1 Countdown
-      .on('broadcast', { event: 'booth_countdown_start' }, () => {
-        triggerCountdown();
-      })
-      // 7. Photo Shot Exchange
       .on('broadcast', { event: 'booth_shot_exchange' }, (payload) => {
         if (payload.payload?.senderId !== user?.id && payload.payload?.dataUrl) {
-          setRemoteSnapshots(prev => [...prev, payload.payload.dataUrl]);
+          latestRemotePhotoRef.current = payload.payload.dataUrl;
         }
+      })
+      .on('broadcast', { event: 'booth_countdown_start' }, (payload) => {
+        const poseIndex = payload.payload?.pose || 1;
+        runShotCountdown(poseIndex);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          // Announce presence in booth
           channel.send({
             type: 'broadcast',
             event: 'booth_join',
@@ -235,17 +347,21 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
         }
       });
 
-    // Send periodic low-res preview frame for instant fallback
+    // Fast continuous video snapshot broadcasting (400ms)
     previewIntervalRef.current = window.setInterval(() => {
       if (localVideoRef.current && localVideoRef.current.videoWidth) {
         const v = localVideoRef.current;
         const c = document.createElement('canvas');
-        c.width = 240;
-        c.height = 180;
+        c.width = 320;
+        c.height = 240;
         const ctx = c.getContext('2d');
         if (ctx) {
-          ctx.drawImage(v, 0, 0, 240, 180);
-          const mini = c.toDataURL('image/jpeg', 0.4);
+          if (facingMode === 'user') {
+            ctx.translate(320, 0);
+            ctx.scale(-1, 1);
+          }
+          ctx.drawImage(v, 0, 0, 320, 240);
+          const mini = c.toDataURL('image/jpeg', 0.5);
           channel.send({
             type: 'broadcast',
             event: 'booth_preview_frame',
@@ -253,14 +369,17 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
           }).catch(() => null);
         }
       }
-    }, 1500);
+    }, 400);
 
     return () => {
       supabase.removeChannel(channel);
+      if (previewIntervalRef.current) {
+        clearInterval(previewIntervalRef.current);
+      }
     };
-  }, [couple?.id, user?.id, user?.name, localStream]);
+  }, [couple?.id, user?.id, user?.name, localStream, facingMode]);
 
-  // Trigger Invite to Partner
+  // Send Push / Broadcast Invite to Partner
   const handleSendInvite = async () => {
     if (!couple?.id) return;
     setIsInviting(true);
@@ -279,76 +398,107 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
       success(`Undangan photobooth telah dikirimkan ke ${partner?.name || 'pasanganmu'}! 📸`);
     } catch {
       error('Gagal mengirim undangan. Coba lagi.');
+    } finally {
       setIsInviting(false);
     }
   };
 
-  // Synchronized Countdown Trigger
-  const triggerCountdown = useCallback(() => {
-    setCountdown(3);
-    const interval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          clearInterval(interval);
-          executeSnap();
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, []);
+  // Automated 4-Pose Photobooth Sequence
+  const startDuoPhotobooth = async () => {
+    setCapturedDuoPhotos([]);
+    setCurrentPose(1);
+    setIsSessionActive(true);
 
-  const handleStartCapture = async () => {
-    if (!couple?.id) {
-      triggerCountdown();
-      return;
-    }
-
-    const channel = supabase.channel(`couple_room_${couple.id}`);
-    await channel.send({
-      type: 'broadcast',
-      event: 'booth_countdown_start',
-      payload: { timestamp: Date.now() }
-    });
-    triggerCountdown();
-  };
-
-  // Snap photo at 0
-  const executeSnap = () => {
-    setIsFlashing(true);
-    playShutterSound();
-    setTimeout(() => setIsFlashing(false), 300);
-
-    const localPhoto = captureLocalFrame();
-    setLocalSnapshots(prev => [...prev, localPhoto]);
-
-    // Send my photo to partner
     if (couple?.id) {
       const channel = supabase.channel(`couple_room_${couple.id}`);
-      channel.send({
+      await channel.send({
         type: 'broadcast',
-        event: 'booth_shot_exchange',
-        payload: { senderId: user?.id, dataUrl: localPhoto }
+        event: 'booth_countdown_start',
+        payload: { pose: 1, timestamp: Date.now() }
       }).catch(() => null);
     }
 
-    setShotStep(prev => prev + 1);
+    runShotCountdown(1, []);
   };
 
-  // When photos are collected, composite & finish session
-  const handleFinishDuo = () => {
-    const mySnap = localSnapshots[0] || captureLocalFrame();
-    const partnerSnap = remoteSnapshots[0] || remoteFallbackImg || partner?.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800';
+  const runShotCountdown = (poseNum: number, accumulatedList: USFramePhoto[] = capturedDuoPhotos) => {
+    setCurrentPose(poseNum);
+    setCountdown(3);
 
-    playSuccessChime();
-    confetti({ particleCount: 50, spread: 70 });
+    let count = 3;
+    const timer = setInterval(async () => {
+      count -= 1;
+      if (count > 0) {
+        setCountdown(count);
+      } else {
+        clearInterval(timer);
+        setCountdown(null);
 
-    const duoPhotos: USFramePhoto[] = [
-      { id: 'shot_me', dataUrl: mySnap, timestamp: Date.now() },
-      { id: 'shot_partner', dataUrl: partnerSnap, timestamp: Date.now() }
-    ];
+        // Flash & Shutter
+        setIsFlashing(true);
+        playShutterSound();
+        setTimeout(() => setIsFlashing(false), 300);
 
-    onCompleteSession(duoPhotos);
+        // 1. Capture local photo
+        const myPhoto = captureLocalFrame();
+
+        // 2. Broadcast local shot to partner
+        if (couple?.id) {
+          const channel = supabase.channel(`couple_room_${couple.id}`);
+          channel.send({
+            type: 'broadcast',
+            event: 'booth_shot_exchange',
+            payload: { senderId: user?.id, dataUrl: myPhoto, pose: poseNum }
+          }).catch(() => null);
+        }
+
+        // 3. Resolve partner photo (either latest remote live frame, or fallback avatar)
+        const partnerPhoto = latestRemotePhotoRef.current || remoteFallbackImg || partner?.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800';
+
+        // 4. Merge Left (Me) + Right (Partner) into 1 Split-Duo Photo
+        const leftLabel = `${user?.name || 'Kamu'} • ${couple?.user_city || 'Jakarta'}`;
+        const rightLabel = `${partner?.name || 'Pasangan'} • ${couple?.partner_city || 'Bandung'}`;
+        const mergedSplitPhoto = await createSplitDuoFrame(myPhoto, partnerPhoto, leftLabel, rightLabel);
+
+        const newPhotoItem: USFramePhoto = {
+          id: `duo_pose_${poseNum}_${Date.now()}`,
+          dataUrl: mergedSplitPhoto,
+          timestamp: Date.now()
+        };
+
+        const nextList = [...accumulatedList, newPhotoItem];
+        setCapturedDuoPhotos(nextList);
+
+        // If there are more poses left (total 4)
+        if (poseNum < 4) {
+          setTimeout(() => {
+            if (couple?.id) {
+              const channel = supabase.channel(`couple_room_${couple.id}`);
+              channel.send({
+                type: 'broadcast',
+                event: 'booth_countdown_start',
+                payload: { pose: poseNum + 1, timestamp: Date.now() }
+              }).catch(() => null);
+            }
+            runShotCountdown(poseNum + 1, nextList);
+          }, 1800);
+        } else {
+          // All 4 poses captured! Stop camera and transition to editor!
+          setIsSessionActive(false);
+          playSuccessChime();
+          confetti({ particleCount: 60, spread: 80 });
+          stopCamera();
+          setTimeout(() => {
+            onCompleteSession(nextList);
+          }, 800);
+        }
+      }
+    }, 1000);
+  };
+
+  const handleCancelClick = () => {
+    stopCamera();
+    onCancel();
   };
 
   return (
@@ -362,12 +512,12 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
           </div>
           <div>
             <h2 className="font-serif text-lg sm:text-xl font-semibold text-foreground">
-              Live Duo Studio
+              Live Duo Studio (Split Kiri-Kanan 4 Pose)
             </h2>
             <p className="text-xs text-foreground-muted flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${partnerOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
               {partnerOnline 
-                ? `Pasangan terhubung (${partner?.name || 'Elena'} & ${user?.name || 'Kai'})`
+                ? `Pasangan terhubung (${user?.name || 'Kamu'} & ${partner?.name || 'Pasangan'})`
                 : 'Menunggu pasangan membuka kamera studio'}
             </p>
           </div>
@@ -377,7 +527,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
           {!partnerOnline && (
             <Button
               onClick={handleSendInvite}
-              disabled={isInviting}
+              disabled={isInviting || isSessionActive}
               variant="primary"
               size="sm"
             >
@@ -385,7 +535,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
               <span>{isInviting ? 'Memanggil...' : 'Ajak Pasangan Foto 📸'}</span>
             </Button>
           )}
-          <Button onClick={onCancel} variant="ghost" size="sm">
+          <Button onClick={handleCancelClick} variant="ghost" size="sm" disabled={isSessionActive}>
             Kembali
           </Button>
         </div>
@@ -401,9 +551,12 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
         {/* Countdown Indicator Overlay */}
         {countdown !== null && (
-          <div className="absolute inset-0 z-40 bg-black/50 backdrop-blur-xs flex items-center justify-center rounded-3xl pointer-events-none">
+          <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center rounded-3xl pointer-events-none">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-terracotta-500 text-white flex items-center justify-center font-serif text-5xl sm:text-7xl font-bold shadow-elevated animate-ping-once">
               {countdown}
+            </div>
+            <div className="mt-4 px-4 py-1.5 rounded-full bg-black/70 text-white text-xs font-semibold uppercase tracking-wider">
+              Pose {currentPose} dari 4! Bersiap senyum 📸
             </div>
           </div>
         )}
@@ -427,6 +580,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
             <button
               onClick={() => setFacingMode(prev => prev === 'user' ? 'environment' : 'user')}
+              disabled={isSessionActive}
               className="p-2 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 transition-colors cursor-pointer"
               title="Putar Kamera"
             >
@@ -458,8 +612,12 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center text-stone-400 bg-stone-900/90 space-y-3">
-              <div className="w-16 h-16 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-terracotta-400">
-                <Camera className="w-8 h-8 animate-pulse" />
+              <div className="w-16 h-16 rounded-full bg-stone-800 border border-stone-700 flex items-center justify-center text-terracotta-400 overflow-hidden">
+                {partner?.avatar ? (
+                  <img src={partner.avatar} alt={partner.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Camera className="w-8 h-8 animate-pulse" />
+                )}
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-white">
@@ -468,7 +626,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
                 <p className="text-xs text-stone-400 max-w-xs mt-1">
                   {partnerOnline 
                     ? 'Menghubungkan sinyal video berdua...' 
-                    : 'Ajak pasangan untuk membuka kamera bersama secara langsung.'}
+                    : 'Ajak pasangan untuk membuka kamera studio secara langsung.'}
                 </p>
               </div>
               {!partnerOnline && (
@@ -497,54 +655,59 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
       </div>
 
-      {/* Central Capture Trigger & Action Bar */}
+      {/* Progress Dots for 4 Poses */}
+      <div className="flex items-center justify-center gap-2">
+        {[1, 2, 3, 4].map((i) => {
+          const isDone = capturedDuoPhotos.length >= i;
+          const isCurrent = currentPose === i && isSessionActive;
+          return (
+            <div
+              key={i}
+              className={`h-3 rounded-full transition-all duration-300 ${
+                isDone
+                  ? 'w-10 bg-terracotta-500 shadow-xs'
+                  : isCurrent
+                  ? 'w-12 bg-amber-500 animate-pulse'
+                  : 'w-4 bg-border'
+              }`}
+            />
+          );
+        })}
+      </div>
+
+      {/* Central Action Bar */}
       <div className="bg-surface border border-border rounded-3xl p-5 sm:p-7 shadow-soft flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
         <div className="space-y-1">
           <h4 className="font-serif text-base font-semibold text-foreground flex items-center justify-center sm:justify-start gap-2">
             <Sparkles className="w-4 h-4 text-terracotta-500" />
-            <span>Studio Foto Split Kanan-Kiri</span>
+            <span>Studio Foto Split Kanan-Kiri (4 Pose Berurutan)</span>
           </h4>
           <p className="text-xs text-foreground-muted">
-            {localSnapshots.length > 0
-              ? `Sudah mengambil ${localSnapshots.length} foto berdua! Kamu bisa lanjut ke editor untuk memilih bingkai.`
-              : 'Klik tombol di samping untuk memulai hitungan mundur 3-2-1 dan jepret bersama.'}
+            {isSessionActive
+              ? `Sedang mengambil Pose ${currentPose} dari 4... Tetap di posisi!`
+              : capturedDuoPhotos.length > 0
+              ? `Selesai mengambil 4 pose berdua! Klik tombol di samping untuk lanjut memilih bingkai.`
+              : 'Klik tombol di samping untuk memulai 4 jepretan otomatis dengan hitungan mundur 3-2-1 di setiap pose.'}
           </p>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          {localSnapshots.length === 0 ? (
-            <Button
-              onClick={handleStartCapture}
-              variant="primary"
-              size="lg"
-              className="w-full sm:w-auto shadow-medium"
-            >
-              <Camera className="w-5 h-5 mr-2" />
-              <span>Ambil Foto Berdua 📸</span>
-            </Button>
-          ) : (
-            <>
-              <Button
-                onClick={handleStartCapture}
-                variant="outline"
-                size="md"
-                className="flex-1 sm:flex-initial"
-              >
-                <RefreshCw className="w-4 h-4 mr-1.5" />
-                <span>Foto Ulang</span>
-              </Button>
-
-              <Button
-                onClick={handleFinishDuo}
-                variant="primary"
-                size="md"
-                className="flex-1 sm:flex-initial shadow-soft"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                <span>Edit & Simpan Bingkai ✨</span>
-              </Button>
-            </>
-          )}
+          <Button
+            onClick={startDuoPhotobooth}
+            disabled={isSessionActive}
+            variant="primary"
+            size="lg"
+            className="w-full sm:w-auto shadow-medium"
+          >
+            <Camera className="w-5 h-5 mr-2" />
+            <span>
+              {isSessionActive
+                ? `Mengambil Pose (${capturedDuoPhotos.length}/4)...`
+                : capturedDuoPhotos.length > 0
+                ? 'Foto Ulang 4 Pose 📸'
+                : 'Mulai 4 Pose Berdua 📸'}
+            </span>
+          </Button>
         </div>
       </div>
 

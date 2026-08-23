@@ -289,16 +289,20 @@ export async function renderUSFrameCanvas(options: RenderOptions): Promise<strin
 }
 
 function applyCanvasFilter(ctx: CanvasRenderingContext2D, filter: string) {
-  if (filter === 'bw') {
-    ctx.filter = 'grayscale(100%) contrast(115%)';
-  } else if (filter === 'warm_film') {
-    ctx.filter = 'sepia(25%) saturate(120%) contrast(105%)';
+  if (filter === 'bw' || filter === 'noir' || filter === 'vintage_noir') {
+    ctx.filter = 'grayscale(100%) contrast(135%) brightness(95%)';
+  } else if (filter === 'bw_warm') {
+    ctx.filter = 'grayscale(100%) sepia(22%) contrast(115%) brightness(104%)';
+  } else if (filter === 'warm_film' || filter === 'film400') {
+    ctx.filter = 'sepia(25%) saturate(125%) contrast(110%) brightness(102%)';
+  } else if (filter === 'golden' || filter === 'golden_hour') {
+    ctx.filter = 'sepia(35%) saturate(140%) contrast(105%) brightness(102%) hue-rotate(-10deg)';
+  } else if (filter === 'vintage') {
+    ctx.filter = 'sepia(45%) contrast(115%) brightness(92%) saturate(90%)';
   } else if (filter === 'tokyo_fade') {
-    ctx.filter = 'contrast(95%) brightness(105%) saturate(85%)';
-  } else if (filter === 'golden_hour') {
-    ctx.filter = 'sepia(35%) saturate(130%) hue-rotate(-10deg)';
-  } else if (filter === 'vintage_noir') {
-    ctx.filter = 'grayscale(100%) contrast(140%) brightness(90%)';
+    ctx.filter = 'contrast(92%) brightness(108%) saturate(85%)';
+  } else if (filter === 'pastel') {
+    ctx.filter = 'saturate(115%) brightness(108%) contrast(95%)';
   } else {
     ctx.filter = 'none';
   }

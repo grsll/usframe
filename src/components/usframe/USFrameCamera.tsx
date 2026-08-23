@@ -146,6 +146,13 @@ export const USFrameCamera: React.FC<USFrameCameraProps> = ({
           }, 1400);
         } else {
           setIsSessionActive(false);
+          if (stream) {
+            stream.getTracks().forEach(track => {
+              track.stop();
+              track.enabled = false;
+            });
+            setStream(null);
+          }
           setTimeout(() => {
             onCompleteSession(updatedList);
           }, 600);
