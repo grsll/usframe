@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Countdown } from '../../types';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { storage } from '../../lib/storage';
+import { roomService } from '../../lib/roomService';
 import { getDaysUntil, formatDatePretty } from '../../lib/utils';
 import { Clock, Plus, Trash2, Pin } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -14,46 +16,40 @@ interface CountdownManagerProps {
 }
 
 export const CountdownManager: React.FC<CountdownManagerProps> = ({ countdowns, onUpdate }) => {
+  const { couple, user } = useAuth();
   const { success } = useToast();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [targetDate, setTargetDate] = useState('');
   const [icon, setIcon] = useState('✈️');
 
-  const handleDelete = (id: string) => {
-    const updated = countdowns.filter(c => c.id !== id);
-    storage.setCountdowns(updated);
-    success('Countdown removed');
+  const handleDelete = async (id: string) => {
+    await roomService.deleteCountdown(id, couple?.id);
+    success('Hitung mundur dihapus');
     onUpdate();
   };
 
-  const handlePin = (id: string) => {
-    const updated = countdowns.map(c => ({
-      ...c,
-      is_pinned: c.id === id
-    }));
-    storage.setCountdowns(updated);
-    success('Pinned countdown updated for Home screen');
+  const handlePin = async (id: string) => {
+    await roomService.pinCountdown(id, couple?.id);
+    success('Hitung mundur utama untuk Beranda diperbarui');
     onUpdate();
   };
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !targetDate) return;
 
-    const newC: Countdown = {
-      id: 'count_' + Math.random().toString(36).substring(2, 9),
-      couple_id: 'couple_main',
+    await roomService.createCountdown({
+      coupleId: couple?.id || 'couple_main',
+      createdBy: user?.id,
       title,
-      target_date: targetDate,
+      targetDate,
       icon,
-      is_pinned: countdowns.length === 0,
-      created_by: 'user_me',
-      created_at: new Date().toISOString()
-    };
+      category: 'meet',
+      isPinned: countdowns.length === 0
+    });
 
-    storage.addCountdown(newC);
-    success('Countdown created! ⏳');
+    success('Hitung mundur berhasil dibuat! ⏳');
     setIsAddOpen(false);
     setTitle('');
     setTargetDate('');

@@ -6,6 +6,7 @@ import { Memory } from '../../types';
 import { Upload, Heart } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { isUuid, generateUuid } from '../../lib/utils';
 
 interface AddMemoryModalProps {
   isOpen: boolean;
@@ -47,7 +48,7 @@ export const AddMemoryModal: React.FC<AddMemoryModalProps> = ({
     if (!title || !mediaUrl) return;
 
     const newMem: Memory = {
-      id: 'mem_' + Math.random().toString(36).substring(2, 9),
+      id: isUuid(couple?.id) ? generateUuid() : 'mem_' + Math.random().toString(36).substring(2, 9),
       couple_id: couple?.id || 'couple_main',
       created_by: user?.id || 'user_me',
       creator_name: user?.name || 'Kai',

@@ -62,7 +62,7 @@ export const AppearanceSettings: React.FC<AppearanceSettingsProps> = ({ onOpenIn
         <div>
           <h3 className="font-serif text-lg sm:text-2xl font-semibold text-foreground">Undangan Pasangan</h3>
           <p className="text-xs sm:text-sm text-foreground-muted mt-0.5">
-            Kode ruangan: <strong className="font-mono text-terracotta-600 dark:text-terracotta-400 font-bold text-base">{couple?.invite_code || 'US7788'}</strong>
+            Kode ruangan: <strong className="font-mono text-terracotta-600 dark:text-terracotta-400 font-bold text-base">{couple?.invite_code || 'Belum dibuat'}</strong>
           </p>
         </div>
         <Button onClick={onOpenInviteModal} variant="warm" size="md" className="w-full sm:w-auto">

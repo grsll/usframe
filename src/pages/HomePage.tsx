@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { storage } from '../lib/storage';
+import { roomService } from '../lib/roomService';
 import { Memory, Countdown } from '../types';
 import { CoupleHeader } from '../components/home/CoupleHeader';
 import { FeaturedMemory } from '../components/home/FeaturedMemory';
@@ -11,7 +12,7 @@ import { AddMemoryModal } from '../components/memories/AddMemoryModal';
 import { MemoryModal } from '../components/memories/MemoryModal';
 
 export const HomePage: React.FC = () => {
-  const { user } = useAuth();
+  const { couple } = useAuth();
   
   const [memories, setMemories] = useState<Memory[]>(() => storage.getMemories());
   const [countdowns, setCountdowns] = useState<Countdown[]>(() => storage.getCountdowns());
@@ -19,31 +20,69 @@ export const HomePage: React.FC = () => {
   const [isAddMemoryOpen, setIsAddMemoryOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
 
+  const loadData = useCallback(async () => {
+    const [freshMemories, freshCountdowns] = await Promise.all([
+      roomService.fetchMemories(couple?.id),
+      roomService.fetchCountdowns(couple?.id)
+    ]);
+    setMemories(freshMemories);
+    setCountdowns(freshCountdowns);
+  }, [couple?.id]);
+
+  useEffect(() => {
+    loadData();
+    const unsubMemories = roomService.subscribeToMemories(couple?.id, loadData);
+    const unsubCountdowns = roomService.subscribeToCountdowns(couple?.id, loadData);
+
+    return () => {
+      unsubMemories();
+      unsubCountdowns();
+    };
+  }, [loadData, couple?.id]);
+
   // Pick today's featured memory or favorite
   const featuredMemory = memories.find(m => m.is_favorite) || memories[0];
 
-  const handleAddMemory = (newMem: Memory) => {
-    const updated = storage.addMemory(newMem);
-    setMemories(updated);
+  const handleAddMemory = async (newMem: Memory) => {
+    const created = await roomService.createMemory({
+      coupleId: couple?.id || 'couple_main',
+      uploaderId: newMem.created_by,
+      creatorName: newMem.creator_name,
+      title: newMem.title,
+      caption: newMem.caption,
+      location: newMem.location,
+      mediaUrl: newMem.media_url,
+      mediaType: newMem.media_type,
+      category: newMem.category,
+      isFavorite: newMem.is_favorite,
+      date: newMem.date
+    });
+    setMemories(prev => [created, ...prev.filter(m => m.id !== created.id)]);
   };
 
-  const handleToggleFavorite = (id: string) => {
-    const updated = memories.map(m => m.id === id ? { ...m, is_favorite: !m.is_favorite } : m);
-    storage.setMemories(updated);
-    setMemories(updated);
+  const handleToggleFavorite = async (id: string) => {
+    const target = memories.find(m => m.id === id);
+    if (!target) return;
+    const nextFavorite = !target.is_favorite;
+
+    setMemories(prev => prev.map(m => m.id === id ? { ...m, is_favorite: nextFavorite } : m));
     if (selectedMemory && selectedMemory.id === id) {
-      setSelectedMemory((prev: Memory | null) => prev ? { ...prev, is_favorite: !prev.is_favorite } : null);
+      setSelectedMemory(prev => prev ? { ...prev, is_favorite: nextFavorite } : null);
     }
+    await roomService.toggleMemoryFavorite(id, nextFavorite, couple?.id);
   };
 
-  const handleDeleteMemory = (id: string) => {
-    const updated = memories.filter(m => m.id !== id);
-    storage.setMemories(updated);
-    setMemories(updated);
+  const handleDeleteMemory = async (id: string) => {
+    setMemories(prev => prev.filter(m => m.id !== id));
+    if (selectedMemory && selectedMemory.id === id) {
+      setSelectedMemory(null);
+    }
+    await roomService.deleteMemory(id, couple?.id);
   };
 
-  const refreshCountdowns = () => {
-    setCountdowns(storage.getCountdowns());
+  const refreshCountdowns = async () => {
+    const fresh = await roomService.fetchCountdowns(couple?.id);
+    setCountdowns(fresh);
   };
 
   return (

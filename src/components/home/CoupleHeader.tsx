@@ -15,7 +15,7 @@ export const CoupleHeader: React.FC = () => {
 
   const duration = calculateRelationshipDuration(couple?.relationship_start_date || new Date().toISOString());
   const isPending = !partner || couple?.status === 'pending';
-  const inviteCode = couple?.invite_code || 'US7788';
+  const inviteCode = couple?.invite_code || '';
 
   const userAvatar = user?.avatar || generateInitialsAvatar(user?.name || 'Kamu');
   const partnerAvatar = partner?.avatar || (partner?.name ? generateInitialsAvatar(partner.name) : '');
@@ -30,6 +30,7 @@ export const CoupleHeader: React.FC = () => {
   ];
 
   const handleCopyCode = () => {
+    if (!inviteCode) return;
     navigator.clipboard.writeText(inviteCode);
     setCopiedCode(true);
     success(`Kode undangan "${inviteCode}" berhasil disalin!`);
@@ -148,7 +149,7 @@ export const CoupleHeader: React.FC = () => {
           <div className="flex items-center gap-2 text-terracotta-900 dark:text-terracotta-100 text-center sm:text-left">
             <UserPlus className="w-4 h-4 text-terracotta-600 dark:text-terracotta-400 shrink-0 hidden sm:block" />
             <span>
-              Ruang siap! Bagikan kode undangan <strong>{inviteCode}</strong> ke pasanganmu agar bisa bergabung.
+              Ruang siap! Bagikan kode undangan <strong>{inviteCode || 'belum tersedia'}</strong> ke pasanganmu agar bisa bergabung.
             </span>
           </div>
 
@@ -199,4 +200,3 @@ export const CoupleHeader: React.FC = () => {
     </section>
   );
 };
-

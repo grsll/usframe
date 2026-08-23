@@ -6,6 +6,8 @@ import { Modal } from '../layout/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { storage } from '../../lib/storage';
+import { roomService } from '../../lib/roomService';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 interface NextMeetCountdownProps {
@@ -14,6 +16,7 @@ interface NextMeetCountdownProps {
 }
 
 export const NextMeetCountdown: React.FC<NextMeetCountdownProps> = ({ countdowns, onUpdate }) => {
+  const { couple, user } = useAuth();
   const { success } = useToast();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -25,22 +28,19 @@ export const NextMeetCountdown: React.FC<NextMeetCountdownProps> = ({ countdowns
     ? getDaysUntil(mainCountdown.target_date) 
     : { days: 0, isToday: false, isPast: false };
 
-  const handleSaveCountdown = (e: React.FormEvent) => {
+  const handleSaveCountdown = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !targetDate) return;
 
-    const newCountdown: Countdown = {
-      id: 'count_' + Math.random().toString(36).substring(2, 9),
-      couple_id: 'couple_main',
+    await roomService.createCountdown({
+      coupleId: couple?.id || 'couple_main',
+      createdBy: user?.id,
       title,
-      target_date: targetDate,
+      targetDate,
       icon: icon || '⏳',
-      is_pinned: true,
-      created_by: 'user_me',
-      created_at: new Date().toISOString()
-    };
+      isPinned: true
+    });
 
-    storage.addCountdown(newCountdown);
     success('Hitung mundur momen baru berhasil dibuat!');
     setIsAddOpen(false);
     setTitle('');

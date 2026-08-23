@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { USFramePhoto, Memory } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { storage } from '../lib/storage';
+import { roomService } from '../lib/roomService';
 import { USFrameCamera } from '../components/usframe/USFrameCamera';
 import { USFrameEditor } from '../components/usframe/USFrameEditor';
 import { Camera, Sparkles } from 'lucide-react';
@@ -27,24 +28,20 @@ export const USFramePage: React.FC = () => {
     setSessionStep('camera');
   };
 
-  const handleSaveToMemories = (renderedDataUrl: string, caption: string) => {
-    const newMemory: Memory = {
-      id: 'mem_usframe_' + Math.random().toString(36).substring(2, 9),
-      couple_id: couple?.id || 'couple_main',
-      created_by: user?.id || 'user_me',
-      creator_name: user?.name || 'Kai',
+  const handleSaveToMemories = async (renderedDataUrl: string, caption: string) => {
+    await roomService.createMemory({
+      coupleId: couple?.id || 'couple_main',
+      uploaderId: user?.id || 'user_me',
+      creatorName: user?.name || 'Kai',
       title: `Strip USFRAME • ${new Date().toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })}`,
       caption: caption || 'Strip photobooth tenang yang diabadikan khusus berdua.',
-      media_url: renderedDataUrl,
-      media_type: 'usframe_strip',
+      mediaUrl: renderedDataUrl,
+      mediaType: 'usframe_strip',
       date: new Date().toISOString().split('T')[0],
-      location: `${couple?.user_city || 'Tokyo'} ⇄ ${couple?.partner_city || 'Paris'}`,
+      location: `${couple?.user_city || 'Jakarta'} ⇄ ${couple?.partner_city || 'Bandung'}`,
       category: 'Photobooth',
-      is_favorite: true,
-      created_at: new Date().toISOString()
-    };
-
-    storage.addMemory(newMemory);
+      isFavorite: true
+    });
   };
 
   return (

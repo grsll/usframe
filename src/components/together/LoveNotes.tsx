@@ -3,6 +3,7 @@ import { LoveNote, NoteType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { storage } from '../../lib/storage';
+import { roomService } from '../../lib/roomService';
 import { formatDatePretty } from '../../lib/utils';
 import { Mail, Lock, Unlock, PenLine } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -25,34 +26,29 @@ export const LoveNotes: React.FC<LoveNotesProps> = ({ notes, onUpdate }) => {
   const [content, setContent] = useState('');
   const [noteType, setNoteType] = useState<NoteType>('general');
 
-  const handleOpenNote = (note: LoveNote) => {
+  const handleOpenNote = async (note: LoveNote) => {
     setSelectedNote(note);
     if (!note.is_opened) {
-      const updatedNotes = notes.map(n => n.id === note.id ? { ...n, is_opened: true } : n);
-      storage.setLoveNotes(updatedNotes);
+      await roomService.markLoveNoteOpened(note.id, couple?.id);
       onUpdate();
     }
   };
 
-  const handleCreateNote = (e: React.FormEvent) => {
+  const handleCreateNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !content) return;
 
-    const newNote: LoveNote = {
-      id: 'note_' + Math.random().toString(36).substring(2, 9),
-      couple_id: couple?.id || 'couple_main',
-      sender_id: user?.id || 'user_me',
-      sender_name: user?.name || 'Kai',
+    await roomService.createLoveNote({
+      coupleId: couple?.id || 'couple_main',
+      senderId: user?.id || 'user_me',
+      senderName: user?.name || 'Kai',
       title,
       content,
-      note_type: noteType,
-      unlock_date: null,
-      is_opened: false,
-      created_at: new Date().toISOString()
-    };
+      noteType,
+      unlockDate: null
+    });
 
-    storage.addLoveNote(newNote);
-    success(`Love note sent to ${partner?.name || 'your partner'}! 💌`);
+    success(`Surat cinta terkirim ke ${partner?.name || 'pasanganmu'}! 💌`);
     setIsCreateOpen(false);
     setTitle('');
     setContent('');

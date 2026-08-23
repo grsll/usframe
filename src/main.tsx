@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import { storage } from './lib/storage';
 import './index.css';
 
 interface Props {
@@ -27,9 +28,8 @@ class ErrorBoundary extends Component<Props, State> {
 
   public handleReset = () => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.clear();
-      }
+      // Step 8: Clear only volatile UI and offline caches, preserving Supabase user auth tokens
+      storage.resetOfflineCaches();
     } catch {}
     window.location.reload();
   };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Input } from '../components/ui/Input';
@@ -22,6 +22,15 @@ export const OnboardingPage: React.FC = () => {
   const [inviteCode, setInviteCode] = useState('');
   const [joinCity, setJoinCity] = useState('Bandung');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const inviteFromUrl = params.get('invite') || params.get('code');
+    if (inviteFromUrl) {
+      setTab('join');
+      setInviteCode(inviteFromUrl.trim().toUpperCase());
+    }
+  }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -195,4 +204,3 @@ export const OnboardingPage: React.FC = () => {
     </div>
   );
 };
-

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { storage } from '../lib/storage';
+import { roomService } from '../lib/roomService';
 import { DailyQuestion } from '../components/together/DailyQuestion';
 import { LoveNotes } from '../components/together/LoveNotes';
 import { MoodTracker } from '../components/together/MoodTracker';
@@ -8,6 +10,7 @@ import { CountdownManager } from '../components/together/CountdownManager';
 import { MessageCircle, Mail, Smile, Compass, Clock } from 'lucide-react';
 
 export const TogetherPage: React.FC = () => {
+  const { couple } = useAuth();
   const [activeTab, setActiveTab] = useState<'prompt' | 'notes' | 'mood' | 'bucket' | 'countdowns'>('prompt');
 
   const [dailyQuestion, setDailyQuestion] = useState(() => storage.getDailyQuestion());
@@ -15,12 +18,34 @@ export const TogetherPage: React.FC = () => {
   const [bucketList, setBucketList] = useState(() => storage.getBucketList());
   const [countdowns, setCountdowns] = useState(() => storage.getCountdowns());
 
-  const refreshAll = () => {
-    setDailyQuestion(storage.getDailyQuestion());
-    setNotes(storage.getLoveNotes());
-    setBucketList(storage.getBucketList());
-    setCountdowns(storage.getCountdowns());
-  };
+  const refreshAll = useCallback(async () => {
+    const [freshDq, freshNotes, freshBucket, freshCounts] = await Promise.all([
+      roomService.fetchDailyQuestion(couple?.id),
+      roomService.fetchLoveNotes(couple?.id),
+      roomService.fetchBucketList(couple?.id),
+      roomService.fetchCountdowns(couple?.id)
+    ]);
+    setDailyQuestion(freshDq);
+    setNotes(freshNotes);
+    setBucketList(freshBucket);
+    setCountdowns(freshCounts);
+  }, [couple?.id]);
+
+  useEffect(() => {
+    refreshAll();
+
+    const unsubLetters = roomService.subscribeToLoveNotes(couple?.id, refreshAll);
+    const unsubDq = roomService.subscribeToDailyQuestions(couple?.id, refreshAll);
+    const unsubBucket = roomService.subscribeToBucketList(couple?.id, refreshAll);
+    const unsubCounts = roomService.subscribeToCountdowns(couple?.id, refreshAll);
+
+    return () => {
+      unsubLetters();
+      unsubDq();
+      unsubBucket();
+      unsubCounts();
+    };
+  }, [refreshAll, couple?.id]);
 
   const tabs = [
     { id: 'prompt', label: 'Daily Prompt', icon: MessageCircle },

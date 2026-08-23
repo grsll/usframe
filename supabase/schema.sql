@@ -7,8 +7,11 @@ CREATE TABLE IF NOT EXISTS public.couples (
   invite_code TEXT UNIQUE NOT NULL,
   status TEXT CHECK (status IN ('pending', 'active')) DEFAULT 'pending',
   member_ids UUID[] NOT NULL,
+  couple_name TEXT,
   relationship_start_date DATE DEFAULT CURRENT_DATE,
   next_meet_date DATE,
+  user_city TEXT,
+  partner_city TEXT,
   xp INTEGER DEFAULT 0,
   garden_level INTEGER DEFAULT 1,
   pet_name TEXT DEFAULT 'Mochi',
@@ -25,19 +28,20 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email TEXT NOT NULL,
   photo_url TEXT,
   couple_id UUID REFERENCES public.couples(id) ON DELETE SET NULL,
-  current_mood TEXT DEFAULT '😊',
+  current_mood TEXT DEFAULT '🥰',
+  mood_label TEXT DEFAULT 'Siap melanjutkan kisah kita',
   status_activity TEXT DEFAULT 'Santai di rumah',
   location_name TEXT,
   last_active TIMESTAMPTZ DEFAULT now(),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 3. Heart Room: Mood, Unek-Unek & I Need to Talk
+-- 3. Heart Room: Mood, Unek-Unek & I Need to Talk & Heart Pulse History
 CREATE TABLE IF NOT EXISTS public.heart_notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
   sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  category TEXT CHECK (category IN ('mood', 'unek_unek', 'i_need_talk', 'appreciation', 'private_journal')),
+  category TEXT CHECK (category IN ('mood', 'unek_unek', 'i_need_talk', 'appreciation', 'private_journal', 'heart_pulse')) DEFAULT 'heart_pulse',
   mood_emoji TEXT,
   content TEXT NOT NULL,
   need_tag TEXT, -- 'Cuma mau didengar', 'Butuh solusi', 'Kangen', dll.
@@ -67,7 +71,7 @@ CREATE TABLE IF NOT EXISTS public.love_letters (
   couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
   sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
-  letter_type TEXT DEFAULT 'general', -- 'open_when_sad', 'open_when_miss', 'anniversary', dll.
+  letter_type TEXT DEFAULT 'general', -- 'general', 'open_when_sad', 'open_when_miss', 'anniversary'
   content TEXT NOT NULL,
   unlock_date TIMESTAMPTZ,
   is_opened BOOLEAN DEFAULT false,
@@ -79,12 +83,65 @@ CREATE TABLE IF NOT EXISTS public.memories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
   uploader_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  media_url TEXT NOT NULL,
-  media_type TEXT DEFAULT 'image', -- 'image', 'voicenote', 'video'
-  category TEXT DEFAULT 'Random',
+  title TEXT,
   caption TEXT,
+  location TEXT,
+  media_url TEXT NOT NULL,
+  media_type TEXT DEFAULT 'image', -- 'image', 'usframe_strip', 'voicenote', 'video'
+  category TEXT DEFAULT 'Random',
+  is_favorite BOOLEAN DEFAULT false,
   memory_date DATE DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 7. Timeline / Milestones
+CREATE TABLE IF NOT EXISTS public.milestones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  date DATE NOT NULL,
+  location TEXT,
+  image_url TEXT,
+  category TEXT DEFAULT 'dating',
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 8. Countdowns
+CREATE TABLE IF NOT EXISTS public.countdowns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  target_date DATE NOT NULL,
+  icon TEXT DEFAULT '✈️',
+  category TEXT DEFAULT 'meet',
+  is_pinned BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 9. Bucket List Items
+CREATE TABLE IF NOT EXISTS public.bucket_list_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  title TEXT NOT NULL,
+  category TEXT DEFAULT 'trip',
+  completed BOOLEAN DEFAULT false,
+  target_location TEXT,
+  completed_at DATE,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 10. Daily Questions & Answers
+CREATE TABLE IF NOT EXISTS public.daily_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
+  question_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  question TEXT NOT NULL,
+  answers JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(couple_id, question_date)
 );
 
 -- Row Level Security (RLS) Setup
@@ -94,20 +151,30 @@ ALTER TABLE public.heart_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.peace_conflicts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.love_letters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.memories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.milestones ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.countdowns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bucket_list_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.daily_questions ENABLE ROW LEVEL SECURITY;
 
--- Clean Up Old Policies if exists
+-- Clean Up Old Policies
 DROP POLICY IF EXISTS "Users can view relevant profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users can view profiles" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can create profile" ON public.profiles;
 DROP POLICY IF EXISTS "Authenticated can create couple" ON public.couples;
 DROP POLICY IF EXISTS "Users can view couples" ON public.couples;
 DROP POLICY IF EXISTS "Users can update couples" ON public.couples;
+DROP POLICY IF EXISTS "Users can delete couples" ON public.couples;
 DROP POLICY IF EXISTS "Couples heart notes policy" ON public.heart_notes;
 DROP POLICY IF EXISTS "Couples peace policy" ON public.peace_conflicts;
 DROP POLICY IF EXISTS "Couples letters policy" ON public.love_letters;
 DROP POLICY IF EXISTS "Couples memories policy" ON public.memories;
+DROP POLICY IF EXISTS "Couples milestones policy" ON public.milestones;
+DROP POLICY IF EXISTS "Couples countdowns policy" ON public.countdowns;
+DROP POLICY IF EXISTS "Couples bucket list policy" ON public.bucket_list_items;
+DROP POLICY IF EXISTS "Couples daily questions policy" ON public.daily_questions;
 
--- Safe Non-Recursive Policies
+-- Profiles Policies
 CREATE POLICY "Users can view profiles" ON public.profiles
   FOR SELECT USING (auth.role() = 'authenticated');
 
@@ -117,6 +184,7 @@ CREATE POLICY "Users can update own profile" ON public.profiles
 CREATE POLICY "Users can create profile" ON public.profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
 
+-- Couples Policies
 CREATE POLICY "Users can view couples" ON public.couples
   FOR SELECT USING (auth.uid() = ANY(member_ids) OR status = 'pending');
 
@@ -126,18 +194,81 @@ CREATE POLICY "Authenticated can create couple" ON public.couples
 CREATE POLICY "Users can update couples" ON public.couples
   FOR UPDATE USING (auth.uid() = ANY(member_ids) OR (status = 'pending' AND array_length(member_ids, 1) = 1));
 
--- Policies for Rooms
+CREATE POLICY "Users can delete couples" ON public.couples
+  FOR DELETE USING (auth.uid() = ANY(member_ids));
+
+-- Room Data Policies: Strictly limited to room members
 CREATE POLICY "Couples heart notes policy" ON public.heart_notes
-  FOR ALL USING (auth.role() = 'authenticated');
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = heart_notes.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
 
 CREATE POLICY "Couples peace policy" ON public.peace_conflicts
-  FOR ALL USING (auth.role() = 'authenticated');
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = peace_conflicts.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
 
 CREATE POLICY "Couples letters policy" ON public.love_letters
-  FOR ALL USING (auth.role() = 'authenticated');
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = love_letters.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
 
 CREATE POLICY "Couples memories policy" ON public.memories
-  FOR ALL USING (auth.role() = 'authenticated');
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = memories.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
+
+CREATE POLICY "Couples milestones policy" ON public.milestones
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = milestones.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
+
+CREATE POLICY "Couples countdowns policy" ON public.countdowns
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = countdowns.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
+
+CREATE POLICY "Couples bucket list policy" ON public.bucket_list_items
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = bucket_list_items.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
+
+CREATE POLICY "Couples daily questions policy" ON public.daily_questions
+  FOR ALL USING (
+    auth.role() = 'authenticated' AND EXISTS (
+      SELECT 1 FROM public.couples
+      WHERE public.couples.id = daily_questions.couple_id
+      AND auth.uid() = ANY(public.couples.member_ids)
+    )
+  );
 
 -- User Registration Trigger
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -159,7 +290,13 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- Enable Realtime
+-- Enable Realtime for all collaborative tables
 ALTER PUBLICATION supabase_realtime ADD TABLE public.couples;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.heart_notes;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.love_letters;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.memories;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.milestones;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.countdowns;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.bucket_list_items;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_questions;

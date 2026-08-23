@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Memory } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { storage } from '../lib/storage';
+import { roomService } from '../lib/roomService';
 import { MemoryGrid } from '../components/memories/MemoryGrid';
 import { MemoryModal } from '../components/memories/MemoryModal';
 import { AddMemoryModal } from '../components/memories/AddMemoryModal';
@@ -8,28 +10,62 @@ import { Plus, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
 export const MemoriesPage: React.FC = () => {
+  const { couple } = useAuth();
   const [memories, setMemories] = useState<Memory[]>(() => storage.getMemories());
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
-  const handleAddMemory = (newMem: Memory) => {
-    const updated = storage.addMemory(newMem);
-    setMemories(updated);
+  const loadMemories = useCallback(async () => {
+    const list = await roomService.fetchMemories(couple?.id);
+    setMemories(list);
+  }, [couple?.id]);
+
+  useEffect(() => {
+    loadMemories();
+    const unsubscribe = roomService.subscribeToMemories(couple?.id, () => {
+      loadMemories();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [loadMemories, couple?.id]);
+
+  const handleAddMemory = async (newMem: Memory) => {
+    // If memory wasn't created through roomService directly
+    const created = await roomService.createMemory({
+      coupleId: couple?.id || 'couple_main',
+      uploaderId: newMem.created_by,
+      creatorName: newMem.creator_name,
+      title: newMem.title,
+      caption: newMem.caption,
+      location: newMem.location,
+      mediaUrl: newMem.media_url,
+      mediaType: newMem.media_type,
+      category: newMem.category,
+      isFavorite: newMem.is_favorite,
+      date: newMem.date
+    });
+    setMemories(prev => [created, ...prev.filter(m => m.id !== created.id)]);
   };
 
-  const handleToggleFavorite = (id: string) => {
-    const updated = memories.map(m => m.id === id ? { ...m, is_favorite: !m.is_favorite } : m);
-    storage.setMemories(updated);
-    setMemories(updated);
+  const handleToggleFavorite = async (id: string) => {
+    const target = memories.find(m => m.id === id);
+    if (!target) return;
+    const nextFavorite = !target.is_favorite;
+
+    setMemories(prev => prev.map(m => m.id === id ? { ...m, is_favorite: nextFavorite } : m));
     if (selectedMemory && selectedMemory.id === id) {
-      setSelectedMemory((prev: Memory | null) => prev ? { ...prev, is_favorite: !prev.is_favorite } : null);
+      setSelectedMemory(prev => prev ? { ...prev, is_favorite: nextFavorite } : null);
     }
+    await roomService.toggleMemoryFavorite(id, nextFavorite, couple?.id);
   };
 
-  const handleDeleteMemory = (id: string) => {
-    const updated = memories.filter(m => m.id !== id);
-    storage.setMemories(updated);
-    setMemories(updated);
+  const handleDeleteMemory = async (id: string) => {
+    setMemories(prev => prev.filter(m => m.id !== id));
+    if (selectedMemory && selectedMemory.id === id) {
+      setSelectedMemory(null);
+    }
+    await roomService.deleteMemory(id, couple?.id);
   };
 
   return (

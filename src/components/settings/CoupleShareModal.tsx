@@ -16,8 +16,8 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
   const { success } = useToast();
   const [copied, setCopied] = useState(false);
 
-  const inviteCode = couple?.invite_code || 'US7788';
-  const inviteUrl = `${window.location.origin}/?invite=${inviteCode}`;
+  const inviteCode = couple?.invite_code || '';
+  const inviteUrl = inviteCode ? `${window.location.origin}/?invite=${inviteCode}` : window.location.origin;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(inviteUrl);
@@ -28,6 +28,7 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
   };
 
   const handleCopyCode = () => {
+    if (!inviteCode) return;
     navigator.clipboard.writeText(inviteCode);
     setCopied(true);
     success(`Kode "${inviteCode}" berhasil disalin!`);
@@ -50,7 +51,7 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
             Kode Ruangan Privat Kalian
           </span>
           <div className="font-mono text-3xl sm:text-5xl font-bold tracking-wider text-terracotta-600 dark:text-terracotta-400 select-all">
-            {inviteCode}
+            {inviteCode || 'Belum ada kode'}
           </div>
           <p className="text-xs text-foreground-muted max-w-xs mx-auto">
             Pasanganmu dapat memasukkan 6 karakter kode ini atau membuka tautan langsung untuk terhubung secara instan.
@@ -75,7 +76,7 @@ export const CoupleShareModal: React.FC<CoupleShareModalProps> = ({ isOpen, onCl
             size="md"
             className="w-full"
           >
-            <span>Salin Kode Saja ({inviteCode})</span>
+            <span>{inviteCode ? `Salin Kode Saja (${inviteCode})` : 'Belum Ada Kode Undangan'}</span>
           </Button>
         </div>
 

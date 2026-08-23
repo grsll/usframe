@@ -3,6 +3,7 @@ import { DailyQuestion as DailyQuestionType } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { storage } from '../../lib/storage';
+import { roomService } from '../../lib/roomService';
 import { MessageCircle, Heart, Send } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Textarea } from '../ui/Input';
@@ -15,7 +16,7 @@ interface DailyQuestionProps {
 }
 
 export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onUpdate }) => {
-  const { user, partner } = useAuth();
+  const { user, partner, couple } = useAuth();
   const { success } = useToast();
 
   const [myAnswer, setMyAnswer] = useState('');
@@ -29,24 +30,20 @@ export const DailyQuestion: React.FC<DailyQuestionProps> = ({ dailyQuestion, onU
   const hasPartnerAnswer = !!answers[partnerId];
   const bothAnswered = hasMyAnswer && hasPartnerAnswer;
 
-  const handleSubmitAnswer = (e: React.FormEvent) => {
+  const handleSubmitAnswer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!myAnswer.trim()) return;
 
     setIsSubmitting(true);
-    const updated: DailyQuestionType = {
-      ...dailyQuestion,
-      answers: {
-        ...(dailyQuestion?.answers || {}),
-        [userId]: {
-          userName: user?.name || 'Kai',
-          answer: myAnswer.trim(),
-          answeredAt: new Date().toISOString()
-        }
-      }
-    };
+    await roomService.submitDailyQuestionAnswer(
+      couple?.id || 'couple_main',
+      userId,
+      user?.name || 'Kai',
+      myAnswer.trim(),
+      dailyQuestion?.question,
+      dailyQuestion?.date
+    );
 
-    storage.setDailyQuestion(updated);
     playSuccessChime();
     confetti({ particleCount: 30, spread: 50 });
     success('Jawaban dibagikan kepada pasanganmu! 🤍');

@@ -3,6 +3,7 @@ import { BucketListItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { storage } from '../../lib/storage';
+import { roomService } from '../../lib/roomService';
 import { CheckCircle2, Circle, Plus, Compass, MapPin } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Modal } from '../layout/Modal';
@@ -23,45 +24,31 @@ export const BucketList: React.FC<BucketListProps> = ({ items, onUpdate }) => {
   const [targetLocation, setTargetLocation] = useState('');
   const [category, setCategory] = useState<'trip' | 'food' | 'activity' | 'future'>('trip');
 
-  const toggleItem = (id: string) => {
-    const updated = items.map(item => {
-      if (item.id === id) {
-        const nextState = !item.completed;
-        if (nextState) {
-          confetti({ particleCount: 30, spread: 40 });
-          success('Milestone completed together! 🎉');
-        }
-        return {
-          ...item,
-          completed: nextState,
-          completed_at: nextState ? new Date().toISOString().split('T')[0] : null
-        };
-      }
-      return item;
-    });
-
-    storage.setBucketList(updated);
+  const toggleItem = async (id: string) => {
+    const target = items.find(item => item.id === id);
+    if (!target) return;
+    const nextState = !target.completed;
+    if (nextState) {
+      confetti({ particleCount: 30, spread: 40 });
+      success('Impian berhasil diselesaikan bersama! 🎉');
+    }
+    await roomService.toggleBucketListItem(id, nextState, couple?.id);
     onUpdate();
   };
 
-  const handleAddItem = (e: React.FormEvent) => {
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title) return;
 
-    const newItem: BucketListItem = {
-      id: 'b_' + Math.random().toString(36).substring(2, 9),
-      couple_id: couple?.id || 'couple_main',
+    await roomService.createBucketListItem({
+      coupleId: couple?.id || 'couple_main',
+      createdBy: user?.id,
       title,
       category,
-      completed: false,
-      target_location: targetLocation || undefined,
-      completed_at: null,
-      created_by: user?.id || 'user_me'
-    };
+      targetLocation: targetLocation || undefined
+    });
 
-    const updated = [...items, newItem];
-    storage.setBucketList(updated);
-    success('Added to couple bucket list! ✨');
+    success('Ditambahkan ke daftar impian berdua! ✨');
     setIsAddOpen(false);
     setTitle('');
     setTargetLocation('');

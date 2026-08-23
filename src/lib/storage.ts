@@ -1,4 +1,5 @@
 import { Couple, UserProfile, Memory, Milestone, Countdown, LoveNote, DailyQuestion, BucketListItem } from '../types';
+import { generateInviteCode } from './utils';
 import { 
   INITIAL_USER, 
   INITIAL_PARTNER, 
@@ -69,6 +70,10 @@ const safeParse = <T>(key: string, fallback: T): T => {
   } catch (err) {
     return fallback;
   }
+};
+
+const isDemoCouple = (couple: Couple): boolean => {
+  return couple.id === 'couple_main' || couple.invite_code === 'US7788';
 };
 
 export const storage = {
@@ -155,8 +160,17 @@ export const storage = {
     if (!code) return null;
     const clean = code.trim().toUpperCase();
     const db = storage.getCouplesDB();
-    const found = Object.values(db).find(c => c.invite_code?.toUpperCase() === clean);
-    return found || null;
+    const matches = Object.values(db).filter(c => c.invite_code?.toUpperCase() === clean);
+    if (!matches.length) return null;
+
+    const nonDemoMatches = matches.filter(c => !isDemoCouple(c));
+    const preferred = nonDemoMatches.length ? nonDemoMatches : matches;
+
+    return preferred.sort((a, b) => {
+      const aTime = new Date(a.created_at || 0).getTime();
+      const bTime = new Date(b.created_at || 0).getTime();
+      return bTime - aTime;
+    })[0] || null;
   },
 
   getCouple: (): Couple | null => {
@@ -364,12 +378,51 @@ export const storage = {
     storage.setCurrentView('home');
   },
 
-  resetAll: () => {
+  generateUniqueInviteCode: (): string => {
+    let code = generateInviteCode();
+    const db = storage.getCouplesDB();
+    const existingCodes = new Set(Object.values(db).map(c => c.invite_code?.toUpperCase()).filter(Boolean));
+
+    while (existingCodes.has(code.toUpperCase())) {
+      code = generateInviteCode();
+    }
+
+    return code;
+  },
+
+  // Step 8: Safe cache resets without wiping user auth tokens or database records
+  clearVolatileCache: () => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.clear();
+        window.localStorage.removeItem(KEYS.VIEW);
       }
     } catch {}
-    Object.keys(memoryStore).forEach(k => delete memoryStore[k]);
+    delete memoryStore[KEYS.VIEW];
+  },
+
+  resetOfflineCaches: () => {
+    const cacheKeys = [
+      KEYS.MEMORIES,
+      KEYS.MILESTONES,
+      KEYS.COUNTDOWNS,
+      KEYS.LOVE_NOTES,
+      KEYS.DAILY_QUESTION,
+      KEYS.BUCKET_LIST,
+      KEYS.VIEW
+    ];
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        cacheKeys.forEach(k => window.localStorage.removeItem(k));
+      }
+    } catch {}
+    cacheKeys.forEach(k => delete memoryStore[k]);
+  },
+
+  resetAll: () => {
+    // Only resets UsFrame app caches, does not wipe Supabase auth tokens
+    storage.resetOfflineCaches();
+    storage.setUser(null);
+    storage.setCouple(null);
+    storage.setPartner(null);
   }
 };
