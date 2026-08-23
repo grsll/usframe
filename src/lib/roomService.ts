@@ -44,7 +44,7 @@ export const resolvePartnerIdAsync = async (coupleId: string, senderId: string):
 
 export const roomService = {
   // Fetch memories with Supabase as source of truth, fallback to room-scoped storage cache
-  fetchMemories: async (coupleId?: string | null): Promise<Memory[]> => {
+  fetchMemories: async (coupleId?: string | null, page = 1, pageSize = 40): Promise<Memory[]> => {
     if (!coupleId) {
       return storage.getMemories(null);
     }
@@ -54,11 +54,15 @@ export const roomService = {
     }
 
     try {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
       const { data, error } = await supabase
         .from('memories')
         .select('*')
         .eq('couple_id', coupleId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) {
         console.warn('Error fetching memories from Supabase, using cache:', error.message);
@@ -69,11 +73,14 @@ export const roomService = {
         const memories: Memory[] = data.map((row: any) => ({
           id: row.id,
           couple_id: row.couple_id,
-          created_by: row.couple_id,
-          creator_name: 'Pasangan',
+          created_by: row.created_by || row.couple_id,
+          creator_name: row.creator_name || 'Pasangan',
           title: row.title || 'Kenangan Bersama',
           caption: row.caption || '',
           media_url: row.media_url,
+          thumbnail_url: row.thumbnail_url || row.media_url,
+          storage_path: row.storage_path,
+          thumbnail_path: row.thumbnail_path,
           media_type: (row.media_type as 'image' | 'usframe_strip') || 'image',
           date: row.memory_date || (row.created_at ? row.created_at.split('T')[0] : new Date().toISOString().split('T')[0]),
           location: row.location || undefined,
@@ -101,6 +108,9 @@ export const roomService = {
     caption: string;
     location?: string;
     mediaUrl: string;
+    thumbnailUrl?: string;
+    storagePath?: string;
+    thumbnailPath?: string;
     mediaType?: 'image' | 'usframe_strip';
     category?: string;
     isFavorite?: boolean;
@@ -112,21 +122,27 @@ export const roomService = {
     const dateStr = memory.date || createdAt.split('T')[0];
 
     let finalMediaUrl = memory.mediaUrl;
-    let storagePath: string | undefined = undefined;
+    let finalThumbnailUrl = memory.thumbnailUrl || memory.mediaUrl;
+    let finalStoragePath = memory.storagePath;
+    let finalThumbnailPath = memory.thumbnailPath;
 
-    // 1. Upload to Supabase Cloud Storage if mediaUrl is a local dataURL or Blob
+    // 1. Upload to Supabase Cloud Storage using structured paths: memories/{couple_id}/{memory_id}.webp
     if (isRemote && (memory.mediaUrl.startsWith('data:') || memory.mediaUrl.startsWith('blob:'))) {
       try {
-        const uploadResult = await (await import('./cloudStorage')).cloudStorage.uploadMemoryImage(
+        const { cloudStorage } = await import('./cloudStorage');
+        const uploadResult = await cloudStorage.uploadMemoryMedia(
           memory.mediaUrl,
           memory.coupleId,
-          memory.mediaType === 'usframe_strip' ? 'strip' : 'photo'
+          newId
         );
-        finalMediaUrl = uploadResult.publicUrl;
-        storagePath = uploadResult.storagePath;
+        finalMediaUrl = uploadResult.mediaUrl;
+        finalThumbnailUrl = uploadResult.thumbnailUrl;
+        finalStoragePath = uploadResult.storagePath;
+        finalThumbnailPath = uploadResult.thumbnailPath;
       } catch (uploadErr: any) {
-        console.warn('Direct bucket upload failed, using optimized media URL for cloud persistence:', uploadErr.message);
+        console.warn('Cloud storage upload warning:', uploadErr.message);
         finalMediaUrl = memory.mediaUrl;
+        finalThumbnailUrl = memory.mediaUrl;
       }
     }
 
@@ -138,7 +154,9 @@ export const roomService = {
       title: memory.title,
       caption: memory.caption,
       media_url: finalMediaUrl,
-      storage_path: storagePath,
+      thumbnail_url: finalThumbnailUrl,
+      storage_path: finalStoragePath,
+      thumbnail_path: finalThumbnailPath,
       media_type: memory.mediaType || 'image',
       date: dateStr,
       location: memory.location,
@@ -154,20 +172,28 @@ export const roomService = {
           .insert([{
             id: newId,
             couple_id: memory.coupleId,
+            created_by: isUuid(memory.uploaderId) ? memory.uploaderId : null,
+            creator_name: memory.creatorName || null,
             title: memory.title,
             caption: memory.caption,
             location: memory.location || null,
             media_url: finalMediaUrl,
+            thumbnail_url: finalThumbnailUrl,
+            storage_path: finalStoragePath || null,
+            thumbnail_path: finalThumbnailPath || null,
             media_type: memory.mediaType || 'image',
             category: memory.category || 'Kencan',
             is_favorite: Boolean(memory.isFavorite),
             memory_date: dateStr
-          }])
-          .select()
-          .maybeSingle();
+          }]);
 
         if (error) {
           console.error('Failed to sync memory to Supabase:', error);
+          // Rollback storage objects on DB failure to prevent orphan files
+          if (finalStoragePath || finalThumbnailPath) {
+            const { cloudStorage } = await import('./cloudStorage');
+            cloudStorage.deleteMemoryMedia(finalStoragePath, finalThumbnailPath).catch(() => null);
+          }
           throw new Error('Gagal menyimpan memori ke database server: ' + error.message);
         }
 
@@ -189,7 +215,7 @@ export const roomService = {
           }).catch(() => null);
         }
 
-        // Broadcast realtime notification to room partner
+        // 4. Broadcast realtime notification to room partner
         const channel = supabase.channel(`couple_room_${memory.coupleId}`);
         channel.send({
           type: 'broadcast',
@@ -245,8 +271,9 @@ export const roomService = {
           .delete()
           .eq('id', id);
 
-        if (target?.storage_path) {
-          (await import('./cloudStorage')).cloudStorage.deleteFile('memories', target.storage_path).catch(() => null);
+        if (target?.storage_path || target?.thumbnail_path) {
+          const { cloudStorage } = await import('./cloudStorage');
+          cloudStorage.deleteMemoryMedia(target.storage_path, target.thumbnail_path).catch(() => null);
         }
 
         const channel = supabase.channel(`couple_room_${coupleId}`);

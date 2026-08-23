@@ -22,10 +22,11 @@ export const MemoryCard: React.FC<MemoryCardProps> = ({
       {/* Media Image */}
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-900">
         <img
-          src={memory.media_url}
+          src={memory.thumbnail_url || memory.media_url}
           alt={memory.title}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           loading="lazy"
+          decoding="async"
         />
 
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

@@ -93,59 +93,134 @@ export const optimizeImageBlob = async (
 
 export const cloudStorage = {
   /**
-   * Uploads a memory photo or photostrip directly to Supabase Cloud Storage.
-   * Guarantees persistent URL accessible across ALL devices and accounts.
+   * Uploads full-resolution memory photo and lightweight thumbnail directly to Supabase Cloud Storage.
+   * Uses structured hierarchy: memories/{couple_id}/{memory_id}.webp and memories/{couple_id}/thumbnails/{memory_id}.webp
+   * Guarantees persistent cloud URLs accessible across ALL devices and accounts belonging to the room.
+   */
+  uploadMemoryMedia: async (
+    fileOrDataUrl: File | Blob | string,
+    coupleId: string,
+    memoryId?: string
+  ): Promise<{
+    mediaUrl: string;
+    thumbnailUrl: string;
+    storagePath: string;
+    thumbnailPath: string;
+  }> => {
+    if (!coupleId || !isUuid(coupleId)) {
+      throw new Error(`ID Ruangan (coupleId) wajib berupa UUID yang valid untuk Cloud Storage: "${coupleId}"`);
+    }
+
+    const safeCoupleId = coupleId;
+    const safeMemoryId = memoryId && isUuid(memoryId) ? memoryId : generateUuid();
+
+    const originalPath = `memories/${safeCoupleId}/${safeMemoryId}.webp`;
+    const thumbnailPath = `memories/${safeCoupleId}/thumbnails/${safeMemoryId}.webp`;
+
+    try {
+      // 1. Generate full-resolution optimized blob (< 600KB)
+      const originalBlob = await optimizeImageBlob(fileOrDataUrl, 1920, 1920, 0.85);
+
+      // 2. Generate lightweight thumbnail blob (< 35KB)
+      const thumbnailBlob = await optimizeImageBlob(fileOrDataUrl, 400, 400, 0.75);
+
+      // 3. Upload original to Supabase Storage
+      const { error: originalUploadError } = await supabase.storage
+        .from('memories')
+        .upload(originalPath, originalBlob, {
+          contentType: 'image/webp',
+          upsert: true,
+          cacheControl: '31536000'
+        });
+
+      if (originalUploadError) {
+        console.warn('Original storage upload warning:', originalUploadError.message);
+        if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
+          return {
+            mediaUrl: fileOrDataUrl,
+            thumbnailUrl: fileOrDataUrl,
+            storagePath: originalPath,
+            thumbnailPath
+          };
+        }
+        throw new Error(`Gagal mengunggah foto ke Cloud Storage: ${originalUploadError.message}`);
+      }
+
+      // 4. Upload thumbnail to Supabase Storage
+      await supabase.storage
+        .from('memories')
+        .upload(thumbnailPath, thumbnailBlob, {
+          contentType: 'image/webp',
+          upsert: true,
+          cacheControl: '31536000'
+        })
+        .catch(() => null);
+
+      // 5. Retrieve Public URLs
+      const { data: originalUrlData } = supabase.storage
+        .from('memories')
+        .getPublicUrl(originalPath);
+
+      const { data: thumbUrlData } = supabase.storage
+        .from('memories')
+        .getPublicUrl(thumbnailPath);
+
+      const mediaUrl = originalUrlData?.publicUrl || '';
+      const thumbnailUrl = thumbUrlData?.publicUrl || mediaUrl;
+
+      if (!mediaUrl) {
+        throw new Error('Gagal mendapatkan Public URL dari Cloud Storage.');
+      }
+
+      return {
+        mediaUrl,
+        thumbnailUrl,
+        storagePath: originalPath,
+        thumbnailPath
+      };
+    } catch (err: any) {
+      console.error('Cloud storage upload error:', err);
+      if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
+        return {
+          mediaUrl: fileOrDataUrl,
+          thumbnailUrl: fileOrDataUrl,
+          storagePath: originalPath,
+          thumbnailPath
+        };
+      }
+      throw err;
+    }
+  },
+
+  /**
+   * Backward-compatible alias for single memory image upload.
    */
   uploadMemoryImage: async (
     fileOrDataUrl: File | Blob | string,
     coupleId: string,
     filenamePrefix?: string
   ): Promise<{ publicUrl: string; storagePath: string }> => {
-    if (!coupleId || !isUuid(coupleId)) {
-      throw new Error(`ID Ruangan (coupleId) wajib berupa UUID yang valid untuk Cloud Storage: "${coupleId}"`);
-    }
-    const safeCoupleId = coupleId;
-    const photoId = generateUuid();
-    const prefix = filenamePrefix ? `${filenamePrefix}_` : '';
-    const storagePath = `rooms/${safeCoupleId}/memories/${prefix}${photoId}.jpg`;
+    const res = await cloudStorage.uploadMemoryMedia(fileOrDataUrl, coupleId);
+    return {
+      publicUrl: res.mediaUrl,
+      storagePath: res.storagePath
+    };
+  },
+
+  /**
+   * Deletes a memory file and its thumbnail from Supabase Cloud Storage.
+   */
+  deleteMemoryMedia: async (storagePath?: string, thumbnailPath?: string): Promise<void> => {
+    const pathsToDelete: string[] = [];
+    if (storagePath) pathsToDelete.push(storagePath);
+    if (thumbnailPath) pathsToDelete.push(thumbnailPath);
+
+    if (pathsToDelete.length === 0) return;
 
     try {
-      const optimizedBlob = await optimizeImageBlob(fileOrDataUrl, 1920, 1920, 0.88);
-
-      const { error: uploadError } = await supabase.storage
-        .from('memories')
-        .upload(storagePath, optimizedBlob, {
-          contentType: 'image/jpeg',
-          upsert: true,
-          cacheControl: '31536000'
-        });
-
-      if (uploadError) {
-        console.warn('Supabase storage upload warning (memories bucket):', uploadError.message);
-        if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
-          return { publicUrl: fileOrDataUrl, storagePath };
-        }
-        throw new Error(`Gagal mengunggah foto ke Cloud Storage: ${uploadError.message}`);
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('memories')
-        .getPublicUrl(storagePath);
-
-      if (!urlData?.publicUrl) {
-        throw new Error('Gagal mendapatkan Public URL dari Cloud Storage.');
-      }
-
-      return {
-        publicUrl: urlData.publicUrl,
-        storagePath
-      };
-    } catch (err: any) {
-      console.error('Cloud storage upload error:', err);
-      if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.startsWith('http')) {
-        return { publicUrl: fileOrDataUrl, storagePath };
-      }
-      throw err;
+      await supabase.storage.from('memories').remove(pathsToDelete);
+    } catch (err) {
+      console.warn('Storage cleanup warning:', err);
     }
   },
 

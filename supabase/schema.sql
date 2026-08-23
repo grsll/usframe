@@ -123,6 +123,9 @@ CREATE TABLE IF NOT EXISTS public.memories (
 );
 
 ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS storage_path TEXT;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS thumbnail_path TEXT;
+ALTER TABLE public.memories ADD COLUMN IF NOT EXISTS creator_name TEXT;
 
 -- 7. Timeline / Milestones
 CREATE TABLE IF NOT EXISTS public.milestones (

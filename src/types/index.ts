@@ -75,7 +75,9 @@ export type Memory = {
   title: string;
   caption: string;
   media_url: string;
+  thumbnail_url?: string;
   storage_path?: string;
+  thumbnail_path?: string;
   media_type: 'image' | 'usframe_strip';
   date: string;
   location?: string;
