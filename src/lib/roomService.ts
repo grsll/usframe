@@ -7,7 +7,8 @@ import {
   Countdown, 
   BucketListItem, 
   DailyQuestion,
-  NoteType 
+  NoteType,
+  HeartMessage
 } from '../types';
 import { isUuid, generateUuid, generateInviteCode } from './utils';
 
@@ -17,18 +18,18 @@ export const isRemoteCouple = (coupleId?: string | null): boolean => {
 };
 
 // ==========================================
-// 1. MEMORIES SERVICE
+// 1. MEMORIES SERVICE (SHARED ROOM PHOTOS & STRIPS)
 // ==========================================
 
 export const roomService = {
-  // Fetch memories with Supabase as source of truth, fallback to storage cache
+  // Fetch memories with Supabase as source of truth, fallback to room-scoped storage cache
   fetchMemories: async (coupleId?: string | null): Promise<Memory[]> => {
     if (!coupleId) {
-      return storage.getMemories();
+      return storage.getMemories(null);
     }
 
     if (!isRemoteCouple(coupleId)) {
-      return storage.getMemories();
+      return storage.getMemories(coupleId);
     }
 
     try {
@@ -40,7 +41,7 @@ export const roomService = {
 
       if (error) {
         console.warn('Error fetching memories from Supabase, using cache:', error.message);
-        return storage.getMemories();
+        return storage.getMemories(coupleId);
       }
 
       if (data) {
@@ -60,14 +61,14 @@ export const roomService = {
           created_at: row.created_at || new Date().toISOString()
         }));
 
-        storage.setMemories(memories);
+        storage.setMemories(memories, coupleId);
         return memories;
       }
     } catch (err) {
       console.warn('Supabase fetch memories error:', err);
     }
 
-    return storage.getMemories();
+    return storage.getMemories(coupleId);
   },
 
   createMemory: async (memory: {
@@ -104,8 +105,8 @@ export const roomService = {
       created_at: createdAt
     };
 
-    // Save to local cache first
-    storage.addMemory(newMemory);
+    // Save to room-scoped local cache
+    storage.addMemory(newMemory, memory.coupleId);
 
     if (isRemote) {
       try {
@@ -132,6 +133,15 @@ export const roomService = {
         } else if (data) {
           newMemory.creator_name = data.profiles?.name || memory.creatorName;
         }
+
+        // Broadcast realtime notification to room partner
+        const channel = supabase.channel(`couple_room_${memory.coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'memory', memoryId: newId, uploaderId: memory.uploaderId }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase createMemory network error:', err);
       }
@@ -141,9 +151,9 @@ export const roomService = {
   },
 
   toggleMemoryFavorite: async (id: string, isFavorite: boolean, coupleId?: string | null): Promise<void> => {
-    const list = storage.getMemories();
+    const list = storage.getMemories(coupleId);
     const updated = list.map(m => m.id === id ? { ...m, is_favorite: isFavorite } : m);
-    storage.setMemories(updated);
+    storage.setMemories(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -158,9 +168,9 @@ export const roomService = {
   },
 
   deleteMemory: async (id: string, coupleId?: string | null): Promise<void> => {
-    const list = storage.getMemories();
+    const list = storage.getMemories(coupleId);
     const updated = list.filter(m => m.id !== id);
-    storage.setMemories(updated);
+    storage.setMemories(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -168,6 +178,13 @@ export const roomService = {
           .from('memories')
           .delete()
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'memory_deleted', memoryId: id }
+        }).catch(() => null);
       } catch (err) {
         console.error('Supabase deleteMemory error:', err);
       }
@@ -191,6 +208,11 @@ export const roomService = {
           onUpdate();
         }
       )
+      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
+        if (payload.payload?.type === 'memory' || payload.payload?.type === 'memory_deleted') {
+          onUpdate();
+        }
+      })
       .subscribe();
 
     return () => {
@@ -199,12 +221,12 @@ export const roomService = {
   },
 
   // ==========================================
-  // 2. LOVE NOTES & HEART NOTES SERVICE
+  // 2. LOVE NOTES & LETTERS SERVICE (SHARED ROOM LETTERS)
   // ==========================================
 
   fetchLoveNotes: async (coupleId?: string | null): Promise<LoveNote[]> => {
     if (!coupleId || !isRemoteCouple(coupleId)) {
-      return storage.getLoveNotes();
+      return storage.getLoveNotes(coupleId);
     }
 
     try {
@@ -216,7 +238,7 @@ export const roomService = {
 
       if (error) {
         console.warn('Error fetching love letters from Supabase:', error.message);
-        return storage.getLoveNotes();
+        return storage.getLoveNotes(coupleId);
       }
 
       if (data) {
@@ -233,14 +255,14 @@ export const roomService = {
           created_at: row.created_at || new Date().toISOString()
         }));
 
-        storage.setLoveNotes(notes);
+        storage.setLoveNotes(notes, coupleId);
         return notes;
       }
     } catch (err) {
       console.warn('Supabase fetch love notes error:', err);
     }
 
-    return storage.getLoveNotes();
+    return storage.getLoveNotes(coupleId);
   },
 
   createLoveNote: async (note: {
@@ -269,7 +291,7 @@ export const roomService = {
       created_at: createdAt
     };
 
-    storage.addLoveNote(newNote);
+    storage.addLoveNote(newNote, note.coupleId);
 
     if (isRemote) {
       try {
@@ -285,6 +307,20 @@ export const roomService = {
             unlock_date: note.unlockDate || null,
             is_opened: false
           }]);
+
+        // Broadcast to partner
+        const channel = supabase.channel(`couple_room_${note.coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'love_letter_received',
+          payload: { 
+            letterId: newId, 
+            senderId: note.senderId, 
+            senderName: note.senderName, 
+            title: note.title 
+          }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase createLoveNote error:', err);
       }
@@ -294,9 +330,9 @@ export const roomService = {
   },
 
   markLoveNoteOpened: async (id: string, coupleId?: string | null): Promise<void> => {
-    const list = storage.getLoveNotes();
+    const list = storage.getLoveNotes(coupleId);
     const updated = list.map(n => n.id === id ? { ...n, is_opened: true } : n);
-    storage.setLoveNotes(updated);
+    storage.setLoveNotes(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -304,6 +340,13 @@ export const roomService = {
           .from('love_letters')
           .update({ is_opened: true })
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'letter_opened', letterId: id }
+        }).catch(() => null);
       } catch (err) {
         console.error('Supabase markLoveNoteOpened error:', err);
       }
@@ -311,9 +354,9 @@ export const roomService = {
   },
 
   deleteLoveNote: async (id: string, coupleId?: string | null): Promise<void> => {
-    const list = storage.getLoveNotes();
+    const list = storage.getLoveNotes(coupleId);
     const updated = list.filter(n => n.id !== id);
-    storage.setLoveNotes(updated);
+    storage.setLoveNotes(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -321,6 +364,13 @@ export const roomService = {
           .from('love_letters')
           .delete()
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'letter_deleted', letterId: id }
+        }).catch(() => null);
       } catch (err) {
         console.error('Supabase deleteLoveNote error:', err);
       }
@@ -344,6 +394,14 @@ export const roomService = {
           onUpdate();
         }
       )
+      .on('broadcast', { event: 'love_letter_received' }, () => {
+        onUpdate();
+      })
+      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
+        if (payload.payload?.type?.startsWith('letter')) {
+          onUpdate();
+        }
+      })
       .subscribe();
 
     return () => {
@@ -351,10 +409,13 @@ export const roomService = {
     };
   },
 
-  // Fetch Heart Messages & Pulse History
-  fetchHeartMessages: async (coupleId?: string | null): Promise<import('../types').HeartMessage[]> => {
+  // ==========================================
+  // 3. HEART MESSAGES & PULSE HISTORY (SHARED ROOM KANGEN)
+  // ==========================================
+
+  fetchHeartMessages: async (coupleId?: string | null): Promise<HeartMessage[]> => {
     if (!coupleId || !isRemoteCouple(coupleId)) {
-      return storage.getHeartMessages();
+      return storage.getHeartMessages(coupleId);
     }
 
     try {
@@ -366,11 +427,11 @@ export const roomService = {
 
       if (error) {
         console.warn('Error fetching heart notes from Supabase:', error.message);
-        return storage.getHeartMessages();
+        return storage.getHeartMessages(coupleId);
       }
 
       if (data) {
-        const msgs: import('../types').HeartMessage[] = data.map((row: any) => ({
+        const msgs: HeartMessage[] = data.map((row: any) => ({
           id: row.id,
           couple_id: row.couple_id,
           sender_id: row.sender_id,
@@ -380,14 +441,14 @@ export const roomService = {
           created_at: row.created_at || new Date().toISOString()
         }));
 
-        storage.setHeartMessages(msgs);
+        storage.setHeartMessages(msgs, coupleId);
         return msgs;
       }
     } catch (err) {
       console.warn('Supabase fetchHeartMessages error:', err);
     }
 
-    return storage.getHeartMessages();
+    return storage.getHeartMessages(coupleId);
   },
 
   createHeartMessage: async (msg: {
@@ -396,12 +457,12 @@ export const roomService = {
     senderName?: string;
     content: string;
     moodEmoji?: string;
-  }): Promise<import('../types').HeartMessage> => {
+  }): Promise<HeartMessage> => {
     const isRemote = isRemoteCouple(msg.coupleId);
     const newId = isRemote ? generateUuid() : 'msg_' + Math.random().toString(36).substring(2, 9);
     const createdAt = new Date().toISOString();
 
-    const newMsg: import('../types').HeartMessage = {
+    const newMsg: HeartMessage = {
       id: newId,
       couple_id: msg.coupleId,
       sender_id: msg.senderId,
@@ -411,7 +472,7 @@ export const roomService = {
       created_at: createdAt
     };
 
-    storage.addHeartMessage(newMsg);
+    storage.addHeartMessage(newMsg, msg.coupleId);
 
     if (isRemote) {
       try {
@@ -458,33 +519,13 @@ export const roomService = {
     };
   },
 
-  // Record Heart Pulse to heart_notes table
-  recordHeartPulse: async (coupleId: string, senderId: string, message: string): Promise<void> => {
-    if (!isRemoteCouple(coupleId) || !isUuid(senderId)) return;
-
-    try {
-      await supabase
-        .from('heart_notes')
-        .insert([{
-          couple_id: coupleId,
-          sender_id: senderId,
-          category: 'heart_pulse',
-          mood_emoji: '🤍',
-          content: message,
-          is_shared: true
-        }]);
-    } catch (err) {
-      console.warn('Supabase recordHeartPulse error:', err);
-    }
-  },
-
   // ==========================================
-  // 4. TIMELINE / MILESTONES SERVICE
+  // 4. TIMELINE / MILESTONES SERVICE (SHARED ROOM TIMELINE)
   // ==========================================
 
   fetchMilestones: async (coupleId?: string | null): Promise<Milestone[]> => {
     if (!coupleId || !isRemoteCouple(coupleId)) {
-      return storage.getMilestones();
+      return storage.getMilestones(coupleId);
     }
 
     try {
@@ -496,7 +537,7 @@ export const roomService = {
 
       if (error) {
         console.warn('Error fetching milestones from Supabase:', error.message);
-        return storage.getMilestones();
+        return storage.getMilestones(coupleId);
       }
 
       if (data) {
@@ -512,14 +553,14 @@ export const roomService = {
           created_at: row.created_at || new Date().toISOString()
         }));
 
-        storage.setMilestones(milestones);
+        storage.setMilestones(milestones, coupleId);
         return milestones;
       }
     } catch (err) {
       console.warn('Supabase fetch milestones error:', err);
     }
 
-    return storage.getMilestones();
+    return storage.getMilestones(coupleId);
   },
 
   createMilestone: async (m: {
@@ -547,7 +588,7 @@ export const roomService = {
       created_at: createdAt
     };
 
-    storage.addMilestone(newMilestone);
+    storage.addMilestone(newMilestone, m.coupleId);
 
     if (isRemote) {
       try {
@@ -563,6 +604,14 @@ export const roomService = {
             image_url: m.imageUrl || null,
             category: m.category || 'dating'
           }]);
+
+        const channel = supabase.channel(`couple_room_${m.coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'milestone', milestoneId: newId }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase createMilestone error:', err);
       }
@@ -572,9 +621,9 @@ export const roomService = {
   },
 
   deleteMilestone: async (id: string, coupleId?: string | null): Promise<void> => {
-    const list = storage.getMilestones();
+    const list = storage.getMilestones(coupleId);
     const updated = list.filter(m => m.id !== id);
-    storage.setMilestones(updated);
+    storage.setMilestones(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -582,6 +631,13 @@ export const roomService = {
           .from('milestones')
           .delete()
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'milestone_deleted', milestoneId: id }
+        }).catch(() => null);
       } catch (err) {
         console.error('Supabase deleteMilestone error:', err);
       }
@@ -605,6 +661,11 @@ export const roomService = {
           onUpdate();
         }
       )
+      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
+        if (payload.payload?.type?.startsWith('milestone')) {
+          onUpdate();
+        }
+      })
       .subscribe();
 
     return () => {
@@ -613,12 +674,12 @@ export const roomService = {
   },
 
   // ==========================================
-  // COUNTDOWNS SERVICE
+  // 5. COUNTDOWNS SERVICE (SHARED ROOM COUNTDOWNS)
   // ==========================================
 
   fetchCountdowns: async (coupleId?: string | null): Promise<Countdown[]> => {
     if (!coupleId || !isRemoteCouple(coupleId)) {
-      return storage.getCountdowns();
+      return storage.getCountdowns(coupleId);
     }
 
     try {
@@ -630,7 +691,7 @@ export const roomService = {
 
       if (error) {
         console.warn('Error fetching countdowns from Supabase:', error.message);
-        return storage.getCountdowns();
+        return storage.getCountdowns(coupleId);
       }
 
       if (data) {
@@ -646,14 +707,14 @@ export const roomService = {
           created_at: row.created_at || new Date().toISOString()
         }));
 
-        storage.setCountdowns(countdowns);
+        storage.setCountdowns(countdowns, coupleId);
         return countdowns;
       }
     } catch (err) {
       console.warn('Supabase fetch countdowns error:', err);
     }
 
-    return storage.getCountdowns();
+    return storage.getCountdowns(coupleId);
   },
 
   createCountdown: async (c: {
@@ -681,12 +742,11 @@ export const roomService = {
       created_at: createdAt
     };
 
-    storage.addCountdown(newCountdown);
+    storage.addCountdown(newCountdown, c.coupleId);
 
     if (isRemote) {
       try {
         if (c.isPinned) {
-          // Unpin other countdowns first
           await supabase
             .from('countdowns')
             .update({ is_pinned: false })
@@ -705,6 +765,14 @@ export const roomService = {
             category: c.category || 'meet',
             is_pinned: Boolean(c.isPinned)
           }]);
+
+        const channel = supabase.channel(`couple_room_${c.coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'countdown', countdownId: newId }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase createCountdown error:', err);
       }
@@ -714,9 +782,9 @@ export const roomService = {
   },
 
   pinCountdown: async (id: string, coupleId?: string | null): Promise<void> => {
-    const list = storage.getCountdowns();
+    const list = storage.getCountdowns(coupleId);
     const updated = list.map(c => ({ ...c, is_pinned: c.id === id }));
-    storage.setCountdowns(updated);
+    storage.setCountdowns(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -729,6 +797,13 @@ export const roomService = {
           .from('countdowns')
           .update({ is_pinned: true })
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'countdown_pinned', countdownId: id }
+        }).catch(() => null);
       } catch (err) {
         console.error('Supabase pinCountdown error:', err);
       }
@@ -736,9 +811,9 @@ export const roomService = {
   },
 
   deleteCountdown: async (id: string, coupleId?: string | null): Promise<void> => {
-    const list = storage.getCountdowns();
+    const list = storage.getCountdowns(coupleId);
     const updated = list.filter(c => c.id !== id);
-    storage.setCountdowns(updated);
+    storage.setCountdowns(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -746,6 +821,13 @@ export const roomService = {
           .from('countdowns')
           .delete()
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'countdown_deleted', countdownId: id }
+        }).catch(() => null);
       } catch (err) {
         console.error('Supabase deleteCountdown error:', err);
       }
@@ -769,6 +851,11 @@ export const roomService = {
           onUpdate();
         }
       )
+      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
+        if (payload.payload?.type?.startsWith('countdown')) {
+          onUpdate();
+        }
+      })
       .subscribe();
 
     return () => {
@@ -777,12 +864,12 @@ export const roomService = {
   },
 
   // ==========================================
-  // BUCKET LIST SERVICE
+  // 6. BUCKET LIST SERVICE (SHARED ROOM BUCKET LIST)
   // ==========================================
 
   fetchBucketList: async (coupleId?: string | null): Promise<BucketListItem[]> => {
     if (!coupleId || !isRemoteCouple(coupleId)) {
-      return storage.getBucketList();
+      return storage.getBucketList(coupleId);
     }
 
     try {
@@ -794,7 +881,7 @@ export const roomService = {
 
       if (error) {
         console.warn('Error fetching bucket list from Supabase:', error.message);
-        return storage.getBucketList();
+        return storage.getBucketList(coupleId);
       }
 
       if (data) {
@@ -809,14 +896,14 @@ export const roomService = {
           created_by: row.created_by || ''
         }));
 
-        storage.setBucketList(items);
+        storage.setBucketList(items, coupleId);
         return items;
       }
     } catch (err) {
       console.warn('Supabase fetch bucket list error:', err);
     }
 
-    return storage.getBucketList();
+    return storage.getBucketList(coupleId);
   },
 
   createBucketListItem: async (item: {
@@ -840,8 +927,8 @@ export const roomService = {
       created_by: item.createdBy || ''
     };
 
-    const current = storage.getBucketList();
-    storage.setBucketList([...current, newItem]);
+    const current = storage.getBucketList(item.coupleId);
+    storage.setBucketList([...current, newItem], item.coupleId);
 
     if (isRemote) {
       try {
@@ -856,6 +943,14 @@ export const roomService = {
             completed: false,
             target_location: item.targetLocation || null
           }]);
+
+        const channel = supabase.channel(`couple_room_${item.coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'bucket_item', itemId: newId }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase createBucketListItem error:', err);
       }
@@ -866,9 +961,9 @@ export const roomService = {
 
   toggleBucketListItem: async (id: string, completed: boolean, coupleId?: string | null): Promise<void> => {
     const dateStr = completed ? new Date().toISOString().split('T')[0] : null;
-    const current = storage.getBucketList();
+    const current = storage.getBucketList(coupleId);
     const updated = current.map(item => item.id === id ? { ...item, completed, completed_at: dateStr } : item);
-    storage.setBucketList(updated);
+    storage.setBucketList(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -879,6 +974,14 @@ export const roomService = {
             completed_at: dateStr
           })
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'bucket_item_toggled', itemId: id, completed }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase toggleBucketListItem error:', err);
       }
@@ -886,9 +989,9 @@ export const roomService = {
   },
 
   deleteBucketListItem: async (id: string, coupleId?: string | null): Promise<void> => {
-    const current = storage.getBucketList();
+    const current = storage.getBucketList(coupleId);
     const updated = current.filter(item => item.id !== id);
-    storage.setBucketList(updated);
+    storage.setBucketList(updated, coupleId);
 
     if (isRemoteCouple(coupleId) && isUuid(id)) {
       try {
@@ -896,6 +999,14 @@ export const roomService = {
           .from('bucket_list_items')
           .delete()
           .eq('id', id);
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'bucket_item_deleted', itemId: id }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase deleteBucketListItem error:', err);
       }
@@ -919,6 +1030,11 @@ export const roomService = {
           onUpdate();
         }
       )
+      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
+        if (payload.payload?.type?.startsWith('bucket')) {
+          onUpdate();
+        }
+      })
       .subscribe();
 
     return () => {
@@ -927,14 +1043,14 @@ export const roomService = {
   },
 
   // ==========================================
-  // DAILY QUESTIONS SERVICE
+  // 7. DAILY QUESTIONS SERVICE (SHARED ROOM PROMPTS)
   // ==========================================
 
   fetchDailyQuestion: async (coupleId?: string | null, dateStr?: string): Promise<DailyQuestion> => {
     const today = dateStr || new Date().toISOString().split('T')[0];
 
     if (!coupleId || !isRemoteCouple(coupleId)) {
-      return storage.getDailyQuestion();
+      return storage.getDailyQuestion(coupleId);
     }
 
     try {
@@ -953,18 +1069,17 @@ export const roomService = {
           question: data.question,
           answers: data.answers || {}
         };
-        storage.setDailyQuestion(dq);
+        storage.setDailyQuestion(dq, coupleId);
         return dq;
       } else {
-        // If not created for today on server yet, load default or fallback
-        const localDq = storage.getDailyQuestion();
+        const localDq = storage.getDailyQuestion(coupleId);
         return localDq;
       }
     } catch (err) {
       console.warn('Supabase fetch daily question error:', err);
     }
 
-    return storage.getDailyQuestion();
+    return storage.getDailyQuestion(coupleId);
   },
 
   submitDailyQuestionAnswer: async (
@@ -978,7 +1093,7 @@ export const roomService = {
     const today = dateStr || new Date().toISOString().split('T')[0];
     const isRemote = isRemoteCouple(coupleId);
 
-    const current = storage.getDailyQuestion();
+    const current = storage.getDailyQuestion(coupleId);
     const updatedAnswers = {
       ...(current.answers || {}),
       [userId]: {
@@ -996,7 +1111,7 @@ export const roomService = {
       answers: updatedAnswers
     };
 
-    storage.setDailyQuestion(updatedDq);
+    storage.setDailyQuestion(updatedDq, coupleId);
 
     if (isRemote) {
       try {
@@ -1008,6 +1123,14 @@ export const roomService = {
             question: updatedDq.question,
             answers: updatedAnswers
           }, { onConflict: 'couple_id,question_date' });
+
+        const channel = supabase.channel(`couple_room_${coupleId}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_data_changed',
+          payload: { type: 'daily_question_answered', userId, userName }
+        }).catch(() => null);
+
       } catch (err) {
         console.error('Supabase submitDailyQuestionAnswer error:', err);
       }
@@ -1033,6 +1156,11 @@ export const roomService = {
           onUpdate();
         }
       )
+      .on('broadcast', { event: 'room_data_changed' }, (payload) => {
+        if (payload.payload?.type?.startsWith('daily_question')) {
+          onUpdate();
+        }
+      })
       .subscribe();
 
     return () => {
@@ -1041,7 +1169,7 @@ export const roomService = {
   },
 
   // ==========================================
-  // 5. SERVER-VALIDATED UNIQUE INVITE CODE
+  // 8. SERVER-VALIDATED UNIQUE INVITE CODE
   // ==========================================
 
   generateUniqueInviteCodeAsync: async (): Promise<string> => {
@@ -1051,7 +1179,6 @@ export const roomService = {
     while (attempts < maxAttempts) {
       const code = generateInviteCode();
       
-      // Check local DB
       const localCouples = storage.getCouplesDB();
       const existsLocal = Object.values(localCouples).some(
         c => c.invite_code?.toUpperCase() === code.toUpperCase()
@@ -1062,7 +1189,6 @@ export const roomService = {
         continue;
       }
 
-      // Query Supabase couples table to verify uniqueness on server
       try {
         const { data, error } = await supabase
           .from('couples')
@@ -1071,11 +1197,9 @@ export const roomService = {
           .maybeSingle();
 
         if (!error && !data) {
-          // Unique on both local and server!
           return code;
         }
       } catch (err) {
-        // If network check fails, fallback to code if unique locally
         return code;
       }
 

@@ -21,6 +21,7 @@ export type Couple = {
   couple_name?: string;
   relationship_start_date: string;
   next_meet_date?: string | null;
+  city?: string;
   user_city?: string;
   partner_city?: string;
   distance_km?: number;

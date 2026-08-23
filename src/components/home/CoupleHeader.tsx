@@ -103,7 +103,7 @@ export const CoupleHeader: React.FC = () => {
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-foreground-muted">
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-terracotta-500 shrink-0" />
-                {couple?.user_city || 'Jakarta'} {isPending ? '' : `⇄ ${couple?.partner_city || 'Kota Pasangan'}`}
+                {couple?.city || couple?.user_city || 'Pilih kota'}
               </span>
               <span>•</span>
               <span>Sejak {new Date(couple?.relationship_start_date || new Date().toISOString()).toLocaleDateString('id-ID', { month: 'long', day: 'numeric', year: 'numeric' })}</span>

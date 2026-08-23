@@ -461,8 +461,8 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
         const partnerPhoto = latestRemotePhotoRef.current || remoteFallbackImg || partner?.avatar || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=800';
 
         // 4. Merge Left (Me) + Right (Partner) into 1 Split-Duo Photo
-        const leftLabel = `${user?.name || 'Kamu'} • ${couple?.user_city || 'Jakarta'}`;
-        const rightLabel = `${partner?.name || 'Pasangan'} • ${couple?.partner_city || 'Bandung'}`;
+        const leftLabel = couple?.city ? `${user?.name || 'Kamu'} • ${couple.city}` : (user?.location_name ? `${user?.name || 'Kamu'} • ${user.location_name}` : `${user?.name || 'Kamu'}`);
+        const rightLabel = couple?.city ? `${partner?.name || 'Pasangan'} • ${couple.city}` : (partner?.location_name ? `${partner?.name || 'Pasangan'} • ${partner.location_name}` : `${partner?.name || 'Pasangan'}`);
         const mergedSplitPhoto = await createSplitDuoFrame(myPhoto, partnerPhoto, leftLabel, rightLabel);
 
         const newPhotoItem: USFramePhoto = {
@@ -595,7 +595,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
           <div className="relative z-10 flex justify-between items-end">
             <span className="text-[9px] sm:text-[11px] font-medium text-white/80 px-1.5 sm:px-2.5 py-0.5 rounded-md sm:rounded-lg bg-black/40 backdrop-blur-xs truncate max-w-full">
-              📍 {couple?.user_city || 'Jakarta'}
+              📍 {couple?.city || user?.location_name || 'Studio Berdua'}
             </span>
           </div>
         </div>
@@ -653,7 +653,7 @@ export const USFrameLiveDuo: React.FC<USFrameLiveDuoProps> = ({
 
           <div className="relative z-10 flex justify-between items-end">
             <span className="text-[9px] sm:text-[11px] font-medium text-white/80 px-1.5 sm:px-2.5 py-0.5 rounded-md sm:rounded-lg bg-black/40 backdrop-blur-xs truncate max-w-full">
-              📍 {couple?.partner_city || 'Bandung'}
+              📍 {couple?.city || partner?.location_name || 'Studio Berdua'}
             </span>
           </div>
         </div>

@@ -1,7 +1,7 @@
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Tabel Couples (Inti Rumah Virtual)
+-- 1. Tabel Couples (Inti Rumah Virtual & Shared Room Source of Truth)
 CREATE TABLE IF NOT EXISTS public.couples (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   invite_code TEXT UNIQUE NOT NULL,
@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.couples (
   couple_name TEXT,
   relationship_start_date DATE DEFAULT CURRENT_DATE,
   next_meet_date DATE,
+  city TEXT,
   user_city TEXT,
   partner_city TEXT,
   xp INTEGER DEFAULT 0,
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.couples (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS city TEXT;
 ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS next_meet_date DATE;
 ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS user_city TEXT;
 ALTER TABLE public.couples ADD COLUMN IF NOT EXISTS partner_city TEXT;
@@ -263,7 +265,8 @@ BEGIN
   SET 
     member_ids = array_append(v_couple.member_ids, v_user_id),
     status = 'active',
-    partner_city = COALESCE(p_city, partner_city, 'Bandung')
+    city = COALESCE(city, p_city, v_couple.user_city, v_couple.partner_city),
+    partner_city = COALESCE(p_city, partner_city)
   WHERE id = v_couple.id
   RETURNING * INTO v_updated_couple;
 

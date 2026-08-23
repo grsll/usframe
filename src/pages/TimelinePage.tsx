@@ -7,7 +7,7 @@ import { TimelineList } from '../components/timeline/TimelineList';
 
 export const TimelinePage: React.FC = () => {
   const { couple } = useAuth();
-  const [milestones, setMilestones] = useState<Milestone[]>(() => storage.getMilestones());
+  const [milestones, setMilestones] = useState<Milestone[]>(() => storage.getMilestones(couple?.id));
 
   const loadMilestones = useCallback(async () => {
     const fresh = await roomService.fetchMilestones(couple?.id);

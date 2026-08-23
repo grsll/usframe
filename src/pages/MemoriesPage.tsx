@@ -11,7 +11,7 @@ import { Button } from '../components/ui/Button';
 
 export const MemoriesPage: React.FC = () => {
   const { couple } = useAuth();
-  const [memories, setMemories] = useState<Memory[]>(() => storage.getMemories());
+  const [memories, setMemories] = useState<Memory[]>(() => storage.getMemories(couple?.id));
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
 

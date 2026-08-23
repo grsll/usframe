@@ -76,6 +76,7 @@ interface AuthContextType {
     coupleName?: string;
     relationshipStartDate: string;
     nextMeetDate?: string;
+    city?: string;
     userCity?: string;
   }) => Promise<Couple>;
   joinCoupleRoom: (inviteCode: string, userCity?: string) => Promise<Couple>;
@@ -259,6 +260,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { user: currentUser, partner: null, couple: null };
       }
 
+      const sharedCity = coupleRow.city || coupleRow.user_city || coupleRow.partner_city || undefined;
+
       const currentCouple: Couple = {
         id: coupleRow.id,
         invite_code: coupleRow.invite_code,
@@ -267,8 +270,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         couple_name: coupleRow.couple_name,
         relationship_start_date: coupleRow.relationship_start_date,
         next_meet_date: coupleRow.next_meet_date,
-        user_city: coupleRow.user_city,
-        partner_city: coupleRow.partner_city,
+        city: sharedCity,
+        user_city: sharedCity,
+        partner_city: sharedCity,
         created_at: coupleRow.created_at
       };
 
@@ -342,7 +346,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
-        // Check either Supabase authenticated user or stored persistent user
         const effectiveUserId = session?.user?.id || storage.getUser()?.id;
 
         if (effectiveUserId && isUuid(effectiveUserId)) {
@@ -363,7 +366,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
         } else {
-          // Check local demo user session (Kai & Elena)
           const localUser = storage.getUser();
           if (localUser && (localUser.id === INITIAL_USER.id || localUser.id === INITIAL_PARTNER.id)) {
             const localSession = storage.syncUserSession(localUser.id);
@@ -377,7 +379,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setCurrentView('home');
             }
           } else {
-            // Unauthenticated guest -> ALWAYS land on landing page
             setUserState(null);
             setPartnerState(null);
             setCoupleState(null);
@@ -428,7 +429,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!couple?.id) return;
 
-    // 1. Broadcast channel for pulse & live mood
+    // 1. Broadcast channel for pulse, letters, room updates, & live mood
     const roomChannel = supabase.channel(`couple_room_${couple.id}`, {
       config: { broadcast: { self: false } }
     });
@@ -437,7 +438,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on('broadcast', { event: 'heart_pulse' }, (payload) => {
         const data = payload.payload;
         if (data && data.senderId !== user?.id) {
-          const senderName = data.from || partner?.name || 'Pasanganmu';
+          const senderName = data.from || data.senderName || partner?.name || 'Pasanganmu';
           const msgText = data.message || 'Aku kangen kamu saat ini 🤍';
           setPulseTriggered({
             from: senderName,
@@ -446,11 +447,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
           // Dispatch native OS device notification
-          deviceNotification.send(`Aku Kangen Kamu 🤍 (${senderName})`, {
+          deviceNotification.send(`💌 ${senderName} Kangen Kamu 🤍`, {
             body: msgText,
             tag: 'usframe_pulse',
             onClick: () => {
               window.focus();
+            }
+          });
+        }
+      })
+      .on('broadcast', { event: 'love_letter_received' }, (payload) => {
+        const data = payload.payload;
+        if (data && data.senderId !== user?.id) {
+          const senderName = data.senderName || partner?.name || 'Pasanganmu';
+          deviceNotification.send(`💌 Surat Cinta Baru (${senderName})`, {
+            body: data.title || 'Pasanganmu menuliskan surat cinta untukmu di ruang berdua.',
+            tag: 'usframe_letter',
+            onClick: () => {
+              window.focus();
+              setCurrentView('together');
             }
           });
         }
@@ -491,9 +506,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         }
       })
+      .on('broadcast', { event: 'room_settings_updated' }, () => {
+        if (user?.id) {
+          syncRemoteSession(user.id);
+        }
+      })
       .subscribe();
 
-    // 2. Realtime listener on couples table (e.g. when partner joins room)
+    // 2. Realtime listener on couples table (when partner joins or updates settings)
     const coupleDbChannel = supabase
       .channel(`db_couple_${couple.id}`)
       .on(
@@ -516,7 +536,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       supabase.removeChannel(roomChannel);
       supabase.removeChannel(coupleDbChannel);
     };
-  }, [couple?.id, user?.id, syncRemoteSession]);
+  }, [couple?.id, user?.id, syncRemoteSession, setCurrentView]);
 
   const loginDemo = () => {
     storage.loadDemoData();
@@ -602,7 +622,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       remoteUserId = generateUuid();
     }
 
-    // Create or update profile in Supabase profiles table
     try {
       await supabase.from('profiles').upsert({
         id: remoteUserId,
@@ -661,12 +680,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     coupleName?: string;
     relationshipStartDate: string;
     nextMeetDate?: string;
+    city?: string;
     userCity?: string;
   }): Promise<Couple> => {
     if (!user) throw new Error('Harap masuk terlebih dahulu.');
 
     const inviteCode = await roomService.generateUniqueInviteCodeAsync();
     const effectiveUserId = isUuid(user.id) ? user.id : (await getRemoteUserId());
+    const roomCity = params.city || params.userCity || null;
 
     if (effectiveUserId) {
       // 1. Ensure profile exists in profiles table
@@ -676,7 +697,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: user.name,
           email: user.email,
           photo_url: user.avatar,
-          location_name: params.userCity || 'Jakarta'
+          location_name: roomCity
         }, { onConflict: 'id' });
       } catch (profileErr) {
         console.warn('Profile upsert before room creation:', profileErr);
@@ -692,7 +713,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           couple_name: params.coupleName || `Ruang ${user.name}`,
           relationship_start_date: params.relationshipStartDate || new Date().toISOString().split('T')[0],
           next_meet_date: params.nextMeetDate || null,
-          user_city: params.userCity || 'Jakarta'
+          city: roomCity,
+          user_city: roomCity,
+          partner_city: roomCity
         }])
         .select()
         .single();
@@ -704,7 +727,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       await supabase.from('profiles').update({ 
         couple_id: data.id,
-        location_name: params.userCity || 'Jakarta'
+        location_name: roomCity
       }).eq('id', effectiveUserId);
 
       await syncRemoteSession(effectiveUserId);
@@ -712,7 +735,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return storage.getCouple()!;
     }
 
-    // Demo account only (e.g. initial demo user)
+    // Demo account fallback
     const newCouple: Couple = {
       id: 'couple_' + Math.random().toString(36).substring(2, 9),
       invite_code: inviteCode,
@@ -721,7 +744,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       couple_name: params.coupleName || `Ruang ${user.name}`,
       relationship_start_date: params.relationshipStartDate || new Date().toISOString().split('T')[0],
       next_meet_date: params.nextMeetDate || null,
-      user_city: params.userCity || 'Jakarta',
+      city: roomCity || undefined,
+      user_city: roomCity || undefined,
+      partner_city: roomCity || undefined,
       created_at: new Date().toISOString()
     };
 
@@ -758,7 +783,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: user.name,
           email: user.email,
           photo_url: user.avatar,
-          location_name: userCity || user.location_name || 'Bandung'
+          location_name: userCity || user.location_name || null
         }, { onConflict: 'id' });
       } catch (e) {
         console.warn('Profile upsert before join:', e);
@@ -768,15 +793,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { data: rpcData, error: rpcError } = await supabase.rpc('join_couple_room', {
           p_invite_code: code,
-          p_city: userCity || user.location_name || 'Bandung',
+          p_city: userCity || user.location_name || null,
           p_user_id: effectiveUserId
         });
 
         if (!rpcError && rpcData) {
           joinSuccess = true;
-          console.log('[joinRoom] RPC success:', rpcData);
         } else if (rpcError) {
-          console.warn('[joinRoom] RPC error:', rpcError.message);
           if (rpcError.message && (
             rpcError.message.includes('sudah penuh') || 
             rpcError.message.includes('sudah bergabung')
@@ -788,34 +811,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (e.message && (e.message.includes('sudah penuh') || e.message.includes('sudah bergabung'))) {
           throw e;
         }
-        console.warn('[joinRoom] RPC exception:', e);
       }
 
       // 3. Direct query fallback
       if (!joinSuccess) {
-        console.log('[joinRoom] Trying direct query for code:', code);
         const { data: targetCouple, error: findError } = await supabase
           .from('couples')
           .select('*')
           .ilike('invite_code', code)
           .maybeSingle();
 
-        console.log('[joinRoom] Direct query result:', { targetCouple, findError });
-
         if (findError) {
-          console.error('Find couple error:', findError);
           throw new Error('Gagal memeriksa kode undangan ke server: ' + findError.message);
         }
 
         if (!targetCouple) {
-          // Check local demo couples before failing
           const localMatch = storage.findCoupleByInviteCode(code);
           if (localMatch) {
             const updatedCouple: Couple = {
               ...localMatch,
               member_ids: Array.from(new Set([...localMatch.member_ids, effectiveUserId])),
               status: 'active',
-              partner_city: userCity || 'Bandung'
+              city: localMatch.city || userCity || undefined
             };
             storage.saveCoupleToDB(updatedCouple);
             storage.setCouple(updatedCouple);
@@ -832,7 +849,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (targetCouple.member_ids?.includes(effectiveUserId)) {
-          // Already in this room — just sync session
           await syncRemoteSession(effectiveUserId);
           setCurrentView('home');
           return storage.getCouple()!;
@@ -843,13 +859,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         const newMemberIds = Array.from(new Set([...(targetCouple.member_ids || []), effectiveUserId]));
-        const partnerCity = userCity || user.location_name || 'Bandung';
+        const partnerCity = userCity || user.location_name || targetCouple.city || null;
 
         const { data: updatedData, error: updateError } = await supabase
           .from('couples')
           .update({ 
             member_ids: newMemberIds, 
             status: 'active',
+            city: targetCouple.city || partnerCity,
             partner_city: partnerCity
           })
           .eq('id', targetCouple.id)
@@ -857,8 +874,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (updateError || !updatedData) {
-          console.error('Update couple error:', updateError);
-          throw new Error(updateError?.message || 'Gagal terhubung ke ruangan. Pastikan izin RLS tabel couples sudah diperbarui.');
+          throw new Error(updateError?.message || 'Gagal terhubung ke ruangan.');
         }
 
         await supabase.from('profiles').update({ 
@@ -867,13 +883,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }).eq('id', effectiveUserId);
       }
 
-      // Sync complete state (including partner profile!)
       await syncRemoteSession(effectiveUserId);
       setCurrentView('home');
       return storage.getCouple()!;
     }
 
-    // Local demo fallback (non-UUID users)
+    // Local demo fallback
     const targetCouple = storage.findCoupleByInviteCode(code);
     if (!targetCouple) {
       throw new Error(`Ruangan dengan kode "${code}" tidak ditemukan.`);
@@ -887,7 +902,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...targetCouple,
       member_ids: [...targetCouple.member_ids, user.id],
       status: 'active',
-      partner_city: userCity || 'Bandung'
+      city: targetCouple.city || userCity || undefined
     };
 
     storage.saveCoupleToDB(updatedCouple);
@@ -988,7 +1003,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateCoupleSettings = async (updates: Partial<Couple>) => {
     if (!couple) return;
-    const updated = { ...couple, ...updates };
+    const targetCity = updates.city !== undefined ? updates.city : (updates.user_city !== undefined ? updates.user_city : couple.city);
+    const updated: Couple = { 
+      ...couple, 
+      ...updates,
+      city: targetCity,
+      user_city: targetCity,
+      partner_city: targetCity
+    };
     setCoupleState(updated);
     storage.saveCoupleToDB(updated);
 
@@ -998,9 +1020,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           couple_name: updated.couple_name,
           relationship_start_date: updated.relationship_start_date,
           next_meet_date: updated.next_meet_date,
-          user_city: updated.user_city,
-          partner_city: updated.partner_city
+          city: targetCity || null,
+          user_city: targetCity || null,
+          partner_city: targetCity || null
         }).eq('id', couple.id);
+
+        const channel = supabase.channel(`couple_room_${couple.id}`);
+        channel.send({
+          type: 'broadcast',
+          event: 'room_settings_updated',
+          payload: { senderId: user?.id, updates: { ...updates, city: targetCity } }
+        }).catch(() => null);
       } catch (err) {
         console.warn('Error syncing couple settings to Supabase:', err);
       }
@@ -1009,8 +1039,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendHeartPulse = async (message = 'Aku kangen kamu saat ini 🤍') => {
     const pulsePayload = {
+      roomId: couple?.id || 'couple_main',
       from: user?.name || 'Pasanganmu',
       senderId: user?.id,
+      receiverId: partner?.id,
+      type: 'miss_you',
       message,
       timestamp: Date.now()
     };

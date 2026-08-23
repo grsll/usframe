@@ -14,8 +14,8 @@ import { MemoryModal } from '../components/memories/MemoryModal';
 export const HomePage: React.FC = () => {
   const { couple } = useAuth();
   
-  const [memories, setMemories] = useState<Memory[]>(() => storage.getMemories());
-  const [countdowns, setCountdowns] = useState<Countdown[]>(() => storage.getCountdowns());
+  const [memories, setMemories] = useState<Memory[]>(() => storage.getMemories(couple?.id));
+  const [countdowns, setCountdowns] = useState<Countdown[]>(() => storage.getCountdowns(couple?.id));
   
   const [isAddMemoryOpen, setIsAddMemoryOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);

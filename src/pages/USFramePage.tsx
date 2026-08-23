@@ -43,7 +43,7 @@ export const USFramePage: React.FC = () => {
       mediaUrl: renderedDataUrl,
       mediaType: 'usframe_strip',
       date: new Date().toISOString().split('T')[0],
-      location: `${couple?.user_city || 'Jakarta'} ⇄ ${couple?.partner_city || 'Bandung'}`,
+      location: couple?.city || couple?.user_city || 'Studio USFRAME',
       category: 'Photobooth',
       isFavorite: true
     });

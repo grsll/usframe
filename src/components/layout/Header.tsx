@@ -45,13 +45,11 @@ export const Header: React.FC = () => {
             </div>
           </button>
 
-          {/* City distance badge */}
-          {couple && !isPending && (
+          {/* Shared Room City badge */}
+          {couple && (
             <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-subtle border border-border text-[11px] text-foreground-muted">
               <Globe className="w-3.5 h-3.5 text-terracotta-500" />
-              <span>{couple.user_city || 'Jakarta'}</span>
-              <span className="text-foreground-subtle">⇄</span>
-              <span>{couple.partner_city || 'Kota Pasangan'}</span>
+              <span>{couple.city || couple.user_city || 'Pilih kota'}</span>
             </div>
           )}
         </div>

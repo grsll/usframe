@@ -13,10 +13,10 @@ export const TogetherPage: React.FC = () => {
   const { couple } = useAuth();
   const [activeTab, setActiveTab] = useState<'prompt' | 'notes' | 'mood' | 'bucket' | 'countdowns'>('prompt');
 
-  const [dailyQuestion, setDailyQuestion] = useState(() => storage.getDailyQuestion());
-  const [notes, setNotes] = useState(() => storage.getLoveNotes());
-  const [bucketList, setBucketList] = useState(() => storage.getBucketList());
-  const [countdowns, setCountdowns] = useState(() => storage.getCountdowns());
+  const [dailyQuestion, setDailyQuestion] = useState(() => storage.getDailyQuestion(couple?.id));
+  const [notes, setNotes] = useState(() => storage.getLoveNotes(couple?.id));
+  const [bucketList, setBucketList] = useState(() => storage.getBucketList(couple?.id));
+  const [countdowns, setCountdowns] = useState(() => storage.getCountdowns(couple?.id));
 
   const refreshAll = useCallback(async () => {
     const [freshDq, freshNotes, freshBucket, freshCounts] = await Promise.all([

@@ -12,7 +12,7 @@ export const ProfileSettings: React.FC = () => {
   const { success, error } = useToast();
 
   const [name, setName] = useState(user?.name || '');
-  const [userCity, setUserCity] = useState(couple?.user_city || 'Jakarta');
+  const [roomCity, setRoomCity] = useState(couple?.city || couple?.user_city || '');
   const [startDate, setStartDate] = useState(couple?.relationship_start_date || new Date().toISOString().split('T')[0]);
   const [avatar, setAvatar] = useState(user?.avatar || '');
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -48,7 +48,9 @@ export const ProfileSettings: React.FC = () => {
     updateUser({ name, avatar });
     if (couple) {
       updateCoupleSettings({
-        user_city: userCity,
+        city: roomCity,
+        user_city: roomCity,
+        partner_city: roomCity,
         relationship_start_date: startDate
       });
     }
@@ -175,10 +177,11 @@ export const ProfileSettings: React.FC = () => {
         {/* City & Relationship Date */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
           <Input
-            label="Kota Asal Kamu"
-            value={userCity}
-            onChange={(e) => setUserCity(e.target.value)}
-            placeholder="contoh: Jakarta, Surabaya, Tokyo"
+            label="Kota / Lokasi Ruang Bersama"
+            value={roomCity}
+            onChange={(e) => setRoomCity(e.target.value)}
+            placeholder="contoh: Depok, Malang, Yogyakarta"
+            helperText="Data kota ini tersinkronisasi realtime untuk kedua pasangan di dalam ruangan."
           />
 
           <Input

@@ -31,12 +31,12 @@ export const OnboardingPage: React.FC = () => {
   // Create Room State
   const [coupleName, setCoupleName] = useState(user?.name ? `Ruang ${user.name}` : 'Ruang Kita');
   const [relationshipDate, setRelationshipDate] = useState(new Date().toISOString().split('T')[0]);
-  const [userCity, setUserCity] = useState('Jakarta');
+  const [roomCity, setRoomCity] = useState('');
   const [nextMeetDate, setNextMeetDate] = useState('');
 
   // Join Room State
   const [inviteCode, setInviteCode] = useState('');
-  const [joinCity, setJoinCity] = useState('Bandung');
+  const [joinCity, setJoinCity] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // Load user rooms on mount
@@ -81,7 +81,8 @@ export const OnboardingPage: React.FC = () => {
         coupleName: coupleName.trim() || `Ruang ${user?.name || 'Kita'}`,
         relationshipStartDate: relationshipDate,
         nextMeetDate: nextMeetDate || undefined,
-        userCity
+        city: roomCity.trim() || undefined,
+        userCity: roomCity.trim() || undefined
       });
 
       confetti({ particleCount: 50, spread: 70 });
@@ -413,10 +414,11 @@ export const OnboardingPage: React.FC = () => {
             />
 
             <Input
-              label="Kota Asal Kamu"
-              value={userCity}
-              onChange={(e) => setUserCity(e.target.value)}
-              placeholder="contoh: Jakarta, Surabaya, Tokyo"
+              label="Kota / Lokasi Bersama (Opsional)"
+              value={roomCity}
+              onChange={(e) => setRoomCity(e.target.value)}
+              placeholder="contoh: Depok, Malang, Yogyakarta"
+              helperText="Lokasi ini akan ditampilkan bersama di ruang berdua."
             />
 
             <Input
@@ -464,10 +466,10 @@ export const OnboardingPage: React.FC = () => {
             </div>
 
             <Input
-              label="Kota Asal Kamu"
+              label="Kota / Lokasi Kamu (Opsional)"
               value={joinCity}
               onChange={(e) => setJoinCity(e.target.value)}
-              placeholder="contoh: Bandung, Paris, London"
+              placeholder="contoh: Depok, Malang, Yogyakarta"
             />
 
             <Button

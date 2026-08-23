@@ -293,71 +293,121 @@ export const storage = {
     safeSetItem(KEYS.VIEW, view);
   },
 
-  getMemories: (): Memory[] => {
-    return safeParse<Memory[]>(KEYS.MEMORIES, []);
+  // --- ROOM-SCOPED SHARED MEMORIES ---
+  getMemories: (coupleId?: string | null): Memory[] => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    const roomKey = `${KEYS.MEMORIES}_${cid}`;
+    const data = safeParse<Memory[] | null>(roomKey, null);
+    if (data !== null) return data;
+    // Migration fallback for legacy un-scoped cache
+    const legacy = safeParse<Memory[]>(KEYS.MEMORIES, []);
+    if (legacy.length > 0 && cid === 'couple_main') return legacy;
+    return [];
   },
-  setMemories: (memories: Memory[]) => {
-    safeSetItem(KEYS.MEMORIES, JSON.stringify(memories));
+  setMemories: (memories: Memory[], coupleId?: string | null) => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    safeSetItem(`${KEYS.MEMORIES}_${cid}`, JSON.stringify(memories));
   },
-  addMemory: (memory: Memory) => {
-    const memories = storage.getMemories();
-    const updated = [memory, ...memories];
-    storage.setMemories(updated);
+  addMemory: (memory: Memory, coupleId?: string | null) => {
+    const cid = coupleId || memory.couple_id || storage.getCouple()?.id || 'default';
+    const current = storage.getMemories(cid);
+    const updated = [memory, ...current.filter(m => m.id !== memory.id)];
+    storage.setMemories(updated, cid);
     return updated;
   },
 
-  getMilestones: (): Milestone[] => {
-    return safeParse<Milestone[]>(KEYS.MILESTONES, []);
+  // --- ROOM-SCOPED SHARED MILESTONES ---
+  getMilestones: (coupleId?: string | null): Milestone[] => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    const roomKey = `${KEYS.MILESTONES}_${cid}`;
+    const data = safeParse<Milestone[] | null>(roomKey, null);
+    if (data !== null) return data;
+    const legacy = safeParse<Milestone[]>(KEYS.MILESTONES, []);
+    if (legacy.length > 0 && cid === 'couple_main') return legacy;
+    return [];
   },
-  setMilestones: (milestones: Milestone[]) => {
-    safeSetItem(KEYS.MILESTONES, JSON.stringify(milestones));
+  setMilestones: (milestones: Milestone[], coupleId?: string | null) => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    safeSetItem(`${KEYS.MILESTONES}_${cid}`, JSON.stringify(milestones));
   },
-  addMilestone: (milestone: Milestone) => {
-    const list = storage.getMilestones();
-    const updated = [...list, milestone].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    storage.setMilestones(updated);
+  addMilestone: (milestone: Milestone, coupleId?: string | null) => {
+    const cid = coupleId || milestone.couple_id || storage.getCouple()?.id || 'default';
+    const list = storage.getMilestones(cid);
+    const updated = [...list.filter(m => m.id !== milestone.id), milestone].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    storage.setMilestones(updated, cid);
     return updated;
   },
 
-  getCountdowns: (): Countdown[] => {
-    return safeParse<Countdown[]>(KEYS.COUNTDOWNS, []);
+  // --- ROOM-SCOPED SHARED COUNTDOWNS ---
+  getCountdowns: (coupleId?: string | null): Countdown[] => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    const roomKey = `${KEYS.COUNTDOWNS}_${cid}`;
+    const data = safeParse<Countdown[] | null>(roomKey, null);
+    if (data !== null) return data;
+    const legacy = safeParse<Countdown[]>(KEYS.COUNTDOWNS, []);
+    if (legacy.length > 0 && cid === 'couple_main') return legacy;
+    return [];
   },
-  setCountdowns: (countdowns: Countdown[]) => {
-    safeSetItem(KEYS.COUNTDOWNS, JSON.stringify(countdowns));
+  setCountdowns: (countdowns: Countdown[], coupleId?: string | null) => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    safeSetItem(`${KEYS.COUNTDOWNS}_${cid}`, JSON.stringify(countdowns));
   },
-  addCountdown: (countdown: Countdown) => {
-    const list = storage.getCountdowns();
-    const updated = [countdown, ...list];
-    storage.setCountdowns(updated);
+  addCountdown: (countdown: Countdown, coupleId?: string | null) => {
+    const cid = coupleId || countdown.couple_id || storage.getCouple()?.id || 'default';
+    const list = storage.getCountdowns(cid);
+    const updated = [countdown, ...list.filter(c => c.id !== countdown.id)];
+    storage.setCountdowns(updated, cid);
     return updated;
   },
 
-  getLoveNotes: (): LoveNote[] => {
-    return safeParse<LoveNote[]>(KEYS.LOVE_NOTES, []);
+  // --- ROOM-SCOPED SHARED LOVE NOTES ---
+  getLoveNotes: (coupleId?: string | null): LoveNote[] => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    const roomKey = `${KEYS.LOVE_NOTES}_${cid}`;
+    const data = safeParse<LoveNote[] | null>(roomKey, null);
+    if (data !== null) return data;
+    const legacy = safeParse<LoveNote[]>(KEYS.LOVE_NOTES, []);
+    if (legacy.length > 0 && cid === 'couple_main') return legacy;
+    return [];
   },
-  setLoveNotes: (notes: LoveNote[]) => {
-    safeSetItem(KEYS.LOVE_NOTES, JSON.stringify(notes));
+  setLoveNotes: (notes: LoveNote[], coupleId?: string | null) => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    safeSetItem(`${KEYS.LOVE_NOTES}_${cid}`, JSON.stringify(notes));
   },
-  addLoveNote: (note: LoveNote) => {
-    const list = storage.getLoveNotes();
-    const updated = [note, ...list];
-    storage.setLoveNotes(updated);
+  addLoveNote: (note: LoveNote, coupleId?: string | null) => {
+    const cid = coupleId || note.couple_id || storage.getCouple()?.id || 'default';
+    const list = storage.getLoveNotes(cid);
+    const updated = [note, ...list.filter(n => n.id !== note.id)];
+    storage.setLoveNotes(updated, cid);
     return updated;
   },
 
-  getDailyQuestion: (): DailyQuestion => {
-    const dq = safeParse<DailyQuestion | null>(KEYS.DAILY_QUESTION, null);
-    return dq ?? INITIAL_DAILY_QUESTION;
+  // --- ROOM-SCOPED SHARED DAILY QUESTION ---
+  getDailyQuestion: (coupleId?: string | null): DailyQuestion => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    const roomKey = `${KEYS.DAILY_QUESTION}_${cid}`;
+    const dq = safeParse<DailyQuestion | null>(roomKey, null);
+    if (dq) return dq;
+    return INITIAL_DAILY_QUESTION;
   },
-  setDailyQuestion: (dq: DailyQuestion) => {
-    safeSetItem(KEYS.DAILY_QUESTION, JSON.stringify(dq));
+  setDailyQuestion: (dq: DailyQuestion, coupleId?: string | null) => {
+    const cid = coupleId || dq.couple_id || storage.getCouple()?.id || 'default';
+    safeSetItem(`${KEYS.DAILY_QUESTION}_${cid}`, JSON.stringify(dq));
   },
 
-  getBucketList: (): BucketListItem[] => {
-    return safeParse<BucketListItem[]>(KEYS.BUCKET_LIST, []);
+  // --- ROOM-SCOPED SHARED BUCKET LIST ---
+  getBucketList: (coupleId?: string | null): BucketListItem[] => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    const roomKey = `${KEYS.BUCKET_LIST}_${cid}`;
+    const data = safeParse<BucketListItem[] | null>(roomKey, null);
+    if (data !== null) return data;
+    const legacy = safeParse<BucketListItem[]>(KEYS.BUCKET_LIST, []);
+    if (legacy.length > 0 && cid === 'couple_main') return legacy;
+    return [];
   },
-  setBucketList: (items: BucketListItem[]) => {
-    safeSetItem(KEYS.BUCKET_LIST, JSON.stringify(items));
+  setBucketList: (items: BucketListItem[], coupleId?: string | null) => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    safeSetItem(`${KEYS.BUCKET_LIST}_${cid}`, JSON.stringify(items));
   },
 
   loadDemoData: () => {
@@ -369,12 +419,12 @@ export const storage = {
     storage.setUser(INITIAL_USER);
     storage.setPartner(INITIAL_PARTNER);
     storage.setCouple(INITIAL_COUPLE);
-    storage.setMemories(INITIAL_MEMORIES);
-    storage.setMilestones(INITIAL_MILESTONES);
-    storage.setCountdowns(INITIAL_COUNTDOWNS);
-    storage.setLoveNotes(INITIAL_LOVE_NOTES);
-    storage.setDailyQuestion(INITIAL_DAILY_QUESTION);
-    storage.setBucketList(INITIAL_BUCKET_LIST);
+    storage.setMemories(INITIAL_MEMORIES, INITIAL_COUPLE.id);
+    storage.setMilestones(INITIAL_MILESTONES, INITIAL_COUPLE.id);
+    storage.setCountdowns(INITIAL_COUNTDOWNS, INITIAL_COUPLE.id);
+    storage.setLoveNotes(INITIAL_LOVE_NOTES, INITIAL_COUPLE.id);
+    storage.setDailyQuestion(INITIAL_DAILY_QUESTION, INITIAL_COUPLE.id);
+    storage.setBucketList(INITIAL_BUCKET_LIST, INITIAL_COUPLE.id);
     storage.setCurrentView('home');
   },
 
@@ -390,7 +440,7 @@ export const storage = {
     return code;
   },
 
-  // Step 8: Safe cache resets without wiping user auth tokens or database records
+  // Safe cache resets without wiping user auth tokens or database records
   clearVolatileCache: () => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -418,11 +468,14 @@ export const storage = {
     cacheKeys.forEach(k => delete memoryStore[k]);
   },
 
-  getHeartMessages: (): import('../types').HeartMessage[] => {
-    return safeParse<import('../types').HeartMessage[]>('usframe_heart_messages', [
+  // --- ROOM-SCOPED HEART PULSE MESSAGES ---
+  getHeartMessages: (coupleId?: string | null): import('../types').HeartMessage[] => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    const key = `usframe_heart_messages_${cid}`;
+    return safeParse<import('../types').HeartMessage[]>(key, [
       {
         id: 'msg_init_1',
-        couple_id: 'couple_main',
+        couple_id: cid,
         sender_id: 'user_kai',
         sender_name: 'Kai',
         content: 'Aku kangen kamu saat ini 🤍',
@@ -431,7 +484,7 @@ export const storage = {
       },
       {
         id: 'msg_init_2',
-        couple_id: 'couple_main',
+        couple_id: cid,
         sender_id: 'user_elena',
         sender_name: 'Elena',
         content: 'Kangen kamu juga, semangat kerjanya ya sayang ✨',
@@ -441,13 +494,15 @@ export const storage = {
     ]);
   },
 
-  addHeartMessage: (msg: import('../types').HeartMessage) => {
-    const list = storage.getHeartMessages();
-    storage.setHeartMessages([msg, ...list.filter(m => m.id !== msg.id)]);
+  addHeartMessage: (msg: import('../types').HeartMessage, coupleId?: string | null) => {
+    const cid = coupleId || msg.couple_id || storage.getCouple()?.id || 'default';
+    const list = storage.getHeartMessages(cid);
+    storage.setHeartMessages([msg, ...list.filter(m => m.id !== msg.id)], cid);
   },
 
-  setHeartMessages: (msgs: import('../types').HeartMessage[]) => {
-    safeSetItem('usframe_heart_messages', JSON.stringify(msgs));
+  setHeartMessages: (msgs: import('../types').HeartMessage[], coupleId?: string | null) => {
+    const cid = coupleId || storage.getCouple()?.id || 'default';
+    safeSetItem(`usframe_heart_messages_${cid}`, JSON.stringify(msgs));
   },
 
   resetAll: () => {
