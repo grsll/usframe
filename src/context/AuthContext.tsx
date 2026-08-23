@@ -580,12 +580,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Silakan masukkan kode undangan yang valid (contoh: US1234).');
     }
 
-    const remoteUserId = await getRemoteUserId();
+    // Get the authenticated Supabase user ID (may differ from local user.id if session was restored)
+    const remoteUserId = await getRemoteUserId() || (isUuid(user.id) ? user.id : null);
 
-    if (remoteUserId && remoteUserId === user.id) {
+    if (remoteUserId) {
       let joinSuccess = false;
 
-      // 1. Try atomic PostgreSQL RPC if created
+      // 1. Try atomic PostgreSQL RPC first
       try {
         const { data: rpcData, error: rpcError } = await supabase.rpc('join_couple_room', {
           p_invite_code: code,
@@ -594,16 +595,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!rpcError && rpcData) {
           joinSuccess = true;
+          console.log('[joinRoom] RPC success');
+        } else if (rpcError) {
+          console.warn('[joinRoom] RPC error:', rpcError.message);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[joinRoom] RPC exception:', e);
+      }
 
       // 2. Direct query fallback
       if (!joinSuccess) {
+        console.log('[joinRoom] Trying direct query for code:', code);
         const { data: targetCouple, error: findError } = await supabase
           .from('couples')
           .select('*')
           .eq('invite_code', code)
           .maybeSingle();
+
+        console.log('[joinRoom] Direct query result:', { targetCouple, findError });
 
         if (findError) {
           console.error('Find couple error:', findError);
@@ -615,7 +624,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (targetCouple.member_ids?.includes(remoteUserId)) {
-          throw new Error('Kamu sudah bergabung di dalam ruangan ini.');
+          // Already in this room — just sync session
+          await syncRemoteSession(remoteUserId);
+          setCurrentView('home');
+          return storage.getCouple()!;
         }
 
         if (targetCouple.member_ids && targetCouple.member_ids.length >= 2) {
@@ -653,7 +665,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return storage.getCouple()!;
     }
 
-    // Local demo fallback
+    // Local demo fallback (non-UUID users)
     const targetCouple = storage.findCoupleByInviteCode(code);
     if (!targetCouple) {
       throw new Error(`Ruangan dengan kode "${code}" tidak ditemukan.`);
