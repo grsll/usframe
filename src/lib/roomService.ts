@@ -351,6 +351,113 @@ export const roomService = {
     };
   },
 
+  // Fetch Heart Messages & Pulse History
+  fetchHeartMessages: async (coupleId?: string | null): Promise<import('../types').HeartMessage[]> => {
+    if (!coupleId || !isRemoteCouple(coupleId)) {
+      return storage.getHeartMessages();
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('heart_notes')
+        .select('*, profiles:sender_id(name)')
+        .eq('couple_id', coupleId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Error fetching heart notes from Supabase:', error.message);
+        return storage.getHeartMessages();
+      }
+
+      if (data) {
+        const msgs: import('../types').HeartMessage[] = data.map((row: any) => ({
+          id: row.id,
+          couple_id: row.couple_id,
+          sender_id: row.sender_id,
+          sender_name: row.profiles?.name || 'Pasangan',
+          content: row.content,
+          mood_emoji: row.mood_emoji || '🤍',
+          created_at: row.created_at || new Date().toISOString()
+        }));
+
+        storage.setHeartMessages(msgs);
+        return msgs;
+      }
+    } catch (err) {
+      console.warn('Supabase fetchHeartMessages error:', err);
+    }
+
+    return storage.getHeartMessages();
+  },
+
+  createHeartMessage: async (msg: {
+    coupleId: string;
+    senderId: string;
+    senderName?: string;
+    content: string;
+    moodEmoji?: string;
+  }): Promise<import('../types').HeartMessage> => {
+    const isRemote = isRemoteCouple(msg.coupleId);
+    const newId = isRemote ? generateUuid() : 'msg_' + Math.random().toString(36).substring(2, 9);
+    const createdAt = new Date().toISOString();
+
+    const newMsg: import('../types').HeartMessage = {
+      id: newId,
+      couple_id: msg.coupleId,
+      sender_id: msg.senderId,
+      sender_name: msg.senderName || 'Kamu',
+      content: msg.content,
+      mood_emoji: msg.moodEmoji || '🤍',
+      created_at: createdAt
+    };
+
+    storage.addHeartMessage(newMsg);
+
+    if (isRemote) {
+      try {
+        await supabase
+          .from('heart_notes')
+          .insert([{
+            id: newId,
+            couple_id: msg.coupleId,
+            sender_id: msg.senderId,
+            category: 'heart_pulse',
+            mood_emoji: msg.moodEmoji || '🤍',
+            content: msg.content,
+            is_shared: true
+          }]);
+      } catch (err) {
+        console.warn('Supabase createHeartMessage error:', err);
+      }
+    }
+
+    return newMsg;
+  },
+
+  subscribeToHeartMessages: (coupleId: string | null | undefined, onUpdate: () => void) => {
+    if (!isRemoteCouple(coupleId)) return () => {};
+
+    const channel = supabase
+      .channel(`realtime_heart_notes_${coupleId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'heart_notes',
+          filter: `couple_id=eq.${coupleId}`
+        },
+        () => {
+          onUpdate();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
   // Record Heart Pulse to heart_notes table
   recordHeartPulse: async (coupleId: string, senderId: string, message: string): Promise<void> => {
     if (!isRemoteCouple(coupleId) || !isUuid(senderId)) return;

@@ -108,7 +108,12 @@ async function createSplitDuoFrame(
         ctx.fillText(rightLabel, 1165, 762);
       }
 
-      resolve(canvas.toDataURL('image/jpeg', 0.95));
+      try {
+        resolve(canvas.toDataURL('image/jpeg', 0.95));
+      } catch (err) {
+        console.warn('Canvas export warning:', err);
+        resolve(leftDataUrl);
+      }
     };
 
     imgLeft.crossOrigin = 'anonymous';

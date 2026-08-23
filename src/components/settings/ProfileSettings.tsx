@@ -190,6 +190,38 @@ export const ProfileSettings: React.FC = () => {
           />
         </div>
 
+        {/* Device Notification Settings */}
+        <div className="p-4 rounded-2xl bg-surface-subtle border border-border space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <span>🔔 Notifikasi Perangkat (Native Device Push)</span>
+              </h4>
+              <p className="text-xs text-foreground-muted">
+                Munculkan pesan cinta, sinyal rindu, dan ajakan foto langsung di layar HP/Laptopmu.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                const granted = await (await import('../../lib/deviceNotification')).deviceNotification.requestPermission();
+                if (granted) {
+                  success('Izin notifikasi perangkat aktif! 🔔');
+                  (await import('../../lib/deviceNotification')).deviceNotification.send('USFRAME Terhubung 🤍', {
+                    body: 'Notifikasi perangkatmu siap menerima sinyal dari pasangan.'
+                  });
+                } else {
+                  error('Izin notifikasi tidak diaktifkan.');
+                }
+              }}
+              className="px-3 py-1.5 rounded-xl bg-terracotta-500 hover:bg-terracotta-600 text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs shrink-0"
+            >
+              Tes / Aktifkan Notifikasi 🔔
+            </button>
+          </div>
+        </div>
+
         {/* Action buttons */}
         <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">

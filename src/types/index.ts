@@ -148,3 +148,13 @@ export type USFrameCustomization = {
   fontStyle: 'serif' | 'sans' | 'script' | 'mono';
   layout: 'strip-4' | 'grid-2x2' | 'duo-vertical' | 'side-by-side';
 };
+
+export type HeartMessage = {
+  id: string;
+  couple_id: string;
+  sender_id: string;
+  sender_name?: string;
+  content: string;
+  mood_emoji?: string;
+  created_at: string;
+};

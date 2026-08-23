@@ -2,35 +2,18 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
-import { Sun, Moon, Laptop, Heart, Globe, UserPlus } from 'lucide-react';
-import confetti from 'canvas-confetti';
-import { playSuccessChime, generateInitialsAvatar } from '../../lib/utils';
+import { Sun, Moon, Laptop, Heart, Globe, UserPlus, MessageCircleHeart } from 'lucide-react';
+import { HeartPulseModal } from '../home/HeartPulseModal';
+import { generateInitialsAvatar } from '../../lib/utils';
 
 export const Header: React.FC = () => {
-  const { user, partner, couple, sendHeartPulse, setCurrentView } = useAuth();
+  const { user, partner, couple, setCurrentView } = useAuth();
   const { theme, setTheme } = useTheme();
-  const { success } = useToast();
-  const [pulseSending, setPulseSending] = useState(false);
+  const [isPulseModalOpen, setIsPulseModalOpen] = useState(false);
 
   const isPending = !partner || couple?.status === 'pending';
   const userAvatar = user?.avatar || generateInitialsAvatar(user?.name || 'Kamu');
   const partnerAvatar = partner?.avatar || (partner?.name ? generateInitialsAvatar(partner.name) : '');
-
-  const handlePulse = () => {
-    setPulseSending(true);
-    sendHeartPulse();
-    playSuccessChime();
-    
-    confetti({
-      particleCount: 25,
-      spread: 50,
-      origin: { y: 0.1, x: 0.8 },
-      colors: ['#D95D39', '#F472B6', '#FDA4AF']
-    });
-
-    success(isPending ? 'Sinyal rindu tersimpan 🤍' : `Sinyal rindu terkirim ke ${partner?.name || 'pasanganmu'} 🤍`);
-    setTimeout(() => setPulseSending(false), 2000);
-  };
 
   const cycleTheme = () => {
     if (theme === 'light') setTheme('dark');
@@ -76,19 +59,14 @@ export const Header: React.FC = () => {
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           
-          {/* I Miss You Pulse Button */}
+          {/* I Miss You Pulse & Message Button */}
           <button
-            onClick={handlePulse}
-            disabled={pulseSending}
-            title="Kirim sinyal detak jantung rindu ke pasangan"
-            className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
-              pulseSending
-                ? 'bg-rose-100 dark:bg-rose-950/80 border-rose-300 text-rose-700 animate-pulse-subtle'
-                : 'bg-terracotta-50 dark:bg-terracotta-950/60 border-terracotta-200/80 dark:border-terracotta-800/80 text-terracotta-700 dark:text-terracotta-300 hover:bg-terracotta-100 active:scale-95'
-            }`}
+            onClick={() => setIsPulseModalOpen(true)}
+            title="Kirim pesan rindu & lihat riwayat sinyal cinta"
+            className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all cursor-pointer bg-terracotta-50 dark:bg-terracotta-950/60 border-terracotta-200/80 dark:border-terracotta-800/80 text-terracotta-700 dark:text-terracotta-300 hover:bg-terracotta-100 dark:hover:bg-terracotta-900/60 active:scale-95 shadow-2xs"
           >
-            <Heart className={`w-3.5 h-3.5 text-terracotta-500 fill-current ${pulseSending ? 'animate-bounce' : ''}`} />
-            <span className="text-[11px] sm:text-xs">{pulseSending ? 'Terkirim! 🤍' : 'Aku Kangen'}</span>
+            <Heart className="w-3.5 h-3.5 text-terracotta-500 fill-current" />
+            <span className="text-[11px] sm:text-xs">Aku Kangen 🤍</span>
           </button>
 
           {/* Theme Selector */}
@@ -138,6 +116,12 @@ export const Header: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Heart Pulse & Love Message History Modal */}
+      <HeartPulseModal
+        isOpen={isPulseModalOpen}
+        onClose={() => setIsPulseModalOpen(false)}
+      />
     </header>
   );
 };

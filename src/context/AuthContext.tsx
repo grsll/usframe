@@ -4,6 +4,7 @@ import { storage } from '../lib/storage';
 import { generateInitialsAvatar, isUuid, generateUuid } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { roomService } from '../lib/roomService';
+import { deviceNotification } from '../lib/deviceNotification';
 import { INITIAL_USER, INITIAL_PARTNER, INITIAL_COUPLE } from '../data/initialData';
 
 const getRemoteUserId = async (): Promise<string | null> => {
@@ -436,20 +437,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on('broadcast', { event: 'heart_pulse' }, (payload) => {
         const data = payload.payload;
         if (data && data.senderId !== user?.id) {
+          const senderName = data.from || partner?.name || 'Pasanganmu';
+          const msgText = data.message || 'Aku kangen kamu saat ini 🤍';
           setPulseTriggered({
-            from: data.from || 'Pasanganmu',
-            message: data.message || 'Aku kangen kamu saat ini 🤍',
+            from: senderName,
+            message: msgText,
             timestamp: data.timestamp || Date.now()
+          });
+
+          // Dispatch native OS device notification
+          deviceNotification.send(`Aku Kangen Kamu 🤍 (${senderName})`, {
+            body: msgText,
+            tag: 'usframe_pulse',
+            onClick: () => {
+              window.focus();
+            }
           });
         }
       })
       .on('broadcast', { event: 'booth_invite' }, (payload) => {
         const data = payload.payload;
         if (data && data.fromId !== user?.id) {
+          const inviterName = data.fromName || partner?.name || 'Pasanganmu';
           setBoothInviteReceived({
             fromId: data.fromId,
-            fromName: data.fromName || partner?.name || 'Pasanganmu',
+            fromName: inviterName,
             timestamp: data.timestamp || Date.now()
+          });
+
+          // Dispatch native OS device notification
+          deviceNotification.send(`Ajak Foto Berdua 📸 (${inviterName})`, {
+            body: `${inviterName} mengajakmu membuka kamera studio USFRAME bersama!`,
+            tag: 'usframe_booth',
+            onClick: () => {
+              window.focus();
+              setCurrentView('usframe');
+            }
           });
         }
       })
@@ -1004,11 +1027,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Realtime pulse send warning:', err);
       }
 
-      if (isUuid(couple.id) && user && isUuid(user.id)) {
-        roomService.recordHeartPulse(couple.id, user.id, message).catch(() => null);
-      }
+      await roomService.createHeartMessage({
+        coupleId: couple.id,
+        senderId: user?.id || 'user_me',
+        senderName: user?.name || 'Kamu',
+        content: message,
+        moodEmoji: '🤍'
+      }).catch(() => null);
     } else {
       setPulseTriggered(pulsePayload);
+      if (user?.id) {
+        roomService.createHeartMessage({
+          coupleId: 'couple_main',
+          senderId: user.id,
+          senderName: user.name || 'Kamu',
+          content: message,
+          moodEmoji: '🤍'
+        }).catch(() => null);
+      }
     }
   };
 

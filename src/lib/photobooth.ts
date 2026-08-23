@@ -11,14 +11,31 @@ export async function renderUSFrameCanvas(options: RenderOptions): Promise<strin
     throw new Error('No photos to render');
   }
 
-  // Load all photo image objects
+  // Load all photo image objects safely
   const loadedImages: HTMLImageElement[] = await Promise.all(
     photos.map(p => {
-      return new Promise<HTMLImageElement>((resolve, reject) => {
+      return new Promise<HTMLImageElement>((resolve) => {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image'));
+        img.onerror = () => {
+          const retryImg = new Image();
+          retryImg.onload = () => resolve(retryImg);
+          retryImg.onerror = () => {
+            const fallbackCanvas = document.createElement('canvas');
+            fallbackCanvas.width = 800;
+            fallbackCanvas.height = 600;
+            const fctx = fallbackCanvas.getContext('2d');
+            if (fctx) {
+              fctx.fillStyle = '#292524';
+              fctx.fillRect(0, 0, 800, 600);
+            }
+            const fallbackImg = new Image();
+            fallbackImg.onload = () => resolve(fallbackImg);
+            fallbackImg.src = fallbackCanvas.toDataURL();
+          };
+          retryImg.src = p.dataUrl;
+        };
         img.src = p.dataUrl;
       });
     })

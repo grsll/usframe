@@ -418,6 +418,38 @@ export const storage = {
     cacheKeys.forEach(k => delete memoryStore[k]);
   },
 
+  getHeartMessages: (): import('../types').HeartMessage[] => {
+    return safeParse<import('../types').HeartMessage[]>('usframe_heart_messages', [
+      {
+        id: 'msg_init_1',
+        couple_id: 'couple_main',
+        sender_id: 'user_kai',
+        sender_name: 'Kai',
+        content: 'Aku kangen kamu saat ini 🤍',
+        mood_emoji: '🤍',
+        created_at: new Date(Date.now() - 3600000 * 2).toISOString()
+      },
+      {
+        id: 'msg_init_2',
+        couple_id: 'couple_main',
+        sender_id: 'user_elena',
+        sender_name: 'Elena',
+        content: 'Kangen kamu juga, semangat kerjanya ya sayang ✨',
+        mood_emoji: '✨',
+        created_at: new Date(Date.now() - 3600000 * 1).toISOString()
+      }
+    ]);
+  },
+
+  addHeartMessage: (msg: import('../types').HeartMessage) => {
+    const list = storage.getHeartMessages();
+    storage.setHeartMessages([msg, ...list.filter(m => m.id !== msg.id)]);
+  },
+
+  setHeartMessages: (msgs: import('../types').HeartMessage[]) => {
+    safeSetItem('usframe_heart_messages', JSON.stringify(msgs));
+  },
+
   resetAll: () => {
     // Only resets UsFrame app caches, does not wipe Supabase auth tokens
     storage.resetOfflineCaches();
