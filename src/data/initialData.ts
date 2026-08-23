@@ -385,6 +385,16 @@ export const USFRAME_TEMPLATES: USFrameTemplate[] = [
     borderStyle: 'solid',
     layout: 'duo-vertical',
     previewBg: 'bg-[#FAF8F5]'
+  },
+  {
+    id: 'duo_live',
+    name: 'Live Duo Studio',
+    description: 'Split kamera berdua (kiri & kanan) dengan cap tanggal & nama pasangan.',
+    bg: '#FAF8F5',
+    textColor: '#1C1917',
+    borderStyle: 'solid',
+    layout: 'side-by-side',
+    previewBg: 'bg-[#FAF8F5]'
   }
 ];
 

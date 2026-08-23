@@ -51,6 +51,9 @@ interface AuthContextType {
   sendHeartPulse: (message?: string) => void;
   pulseTriggered: { from: string; message: string; timestamp: number } | null;
   clearPulse: () => void;
+  boothInviteReceived: { fromId: string; fromName: string; timestamp: number } | null;
+  acceptBoothInvite: () => void;
+  declineBoothInvite: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -87,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [pulseTriggered, setPulseTriggered] = useState<{ from: string; message: string; timestamp: number } | null>(null);
+  const [boothInviteReceived, setBoothInviteReceived] = useState<{ fromId: string; fromName: string; timestamp: number } | null>(null);
 
   // Synchronize view changes with storage
   const setCurrentView = (view: AppView) => {
@@ -309,6 +313,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setPulseTriggered({
             from: data.from || 'Pasanganmu',
             message: data.message || 'Aku kangen kamu saat ini 🤍',
+            timestamp: data.timestamp || Date.now()
+          });
+        }
+      })
+      .on('broadcast', { event: 'booth_invite' }, (payload) => {
+        const data = payload.payload;
+        if (data && data.fromId !== user?.id) {
+          setBoothInviteReceived({
+            fromId: data.fromId,
+            fromName: data.fromName || partner?.name || 'Pasanganmu',
             timestamp: data.timestamp || Date.now()
           });
         }
@@ -805,6 +819,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPulseTriggered(null);
   };
 
+  const acceptBoothInvite = () => {
+    setBoothInviteReceived(null);
+    setCurrentView('usframe');
+    if (couple?.id) {
+      const channel = supabase.channel(`couple_room_${couple.id}`);
+      channel.send({
+        type: 'broadcast',
+        event: 'booth_join',
+        payload: { senderId: user?.id, name: user?.name }
+      }).catch(() => null);
+    }
+  };
+
+  const declineBoothInvite = () => {
+    setBoothInviteReceived(null);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -826,7 +857,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateCoupleSettings,
         sendHeartPulse,
         pulseTriggered,
-        clearPulse
+        clearPulse,
+        boothInviteReceived,
+        acceptBoothInvite,
+        declineBoothInvite
       }}
     >
       {children}

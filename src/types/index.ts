@@ -117,7 +117,7 @@ export type BucketListItem = {
   created_by: string;
 };
 
-export type USFrameTemplateId = 'minimal' | 'classic' | 'terracotta' | 'film35' | 'midnight' | 'polaroid';
+export type USFrameTemplateId = 'minimal' | 'classic' | 'terracotta' | 'film35' | 'midnight' | 'polaroid' | 'duo_live';
 
 export type USFrameTemplate = {
   id: USFrameTemplateId;
@@ -126,7 +126,7 @@ export type USFrameTemplate = {
   bg: string;
   textColor: string;
   borderStyle: string;
-  layout: 'strip-4' | 'grid-2x2' | 'duo-vertical';
+  layout: 'strip-4' | 'grid-2x2' | 'duo-vertical' | 'side-by-side';
   previewBg: string;
 };
 
@@ -146,5 +146,5 @@ export type USFrameCustomization = {
   filter: string;
   stamp: string;
   fontStyle: 'serif' | 'sans' | 'script' | 'mono';
-  layout: 'strip-4' | 'grid-2x2' | 'duo-vertical';
+  layout: 'strip-4' | 'grid-2x2' | 'duo-vertical' | 'side-by-side';
 };

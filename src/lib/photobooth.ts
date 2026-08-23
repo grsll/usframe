@@ -196,6 +196,57 @@ export async function renderUSFrameCanvas(options: RenderOptions): Promise<strin
       templateId
     });
 
+  } else if (layout === 'side-by-side') {
+    canvas.width = 2400;
+    canvas.height = 1800;
+
+    // Side by side duo layout
+    const margin = 80;
+    const gap = 60;
+    const photoWidth = (canvas.width - margin * 2 - gap) / 2;
+    const photoHeight = photoWidth * 1.05;
+    const startY = 140;
+
+    // Draw Left (Me) and Right (Partner)
+    for (let i = 0; i < Math.min(2, photoCount); i++) {
+      const img = loadedImages[i];
+      const x = margin + i * (photoWidth + gap);
+      const y = startY;
+
+      ctx.save();
+      applyCanvasFilter(ctx, filter);
+      drawImageCover(ctx, img, x, y, photoWidth, photoHeight);
+      ctx.restore();
+
+      // Border for each frame
+      ctx.strokeStyle = templateId === 'film35' || templateId === 'midnight' ? '#3F3F46' : '#E5E7EB';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(x, y, photoWidth, photoHeight);
+    }
+
+    // Draw center connecting emblem
+    ctx.save();
+    ctx.fillStyle = accentColor;
+    ctx.font = 'bold 44px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🤍', canvas.width / 2, startY + photoHeight / 2 + 15);
+    ctx.restore();
+
+    const footerY = startY + photoHeight + 80;
+    drawFooter({
+      ctx,
+      canvas,
+      y: footerY,
+      textColor,
+      accentColor,
+      customText: customText || 'US — LIVE DUO PHOTOBOOTH',
+      showDate,
+      customDate: customDate || new Date().toISOString().split('T')[0],
+      stamp,
+      fontStyle: 'serif',
+      templateId
+    });
+
   } else {
     // duo-vertical
     const margin = 90;
