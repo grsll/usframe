@@ -8,13 +8,34 @@ import {
   BucketListItem, 
   DailyQuestion,
   NoteType,
-  HeartMessage
+  HeartMessage,
+  AppNotification
 } from '../types';
 import { isUuid, generateUuid, generateInviteCode } from './utils';
 
 // Helper to check if current environment is using a remote Supabase couple
 export const isRemoteCouple = (coupleId?: string | null): boolean => {
   return Boolean(coupleId && isUuid(coupleId));
+};
+
+// Helper to resolve partner ID from couple room
+export const resolvePartnerIdAsync = async (coupleId: string, senderId: string): Promise<string | null> => {
+  if (!isRemoteCouple(coupleId)) return null;
+  try {
+    const { data } = await supabase
+      .from('couples')
+      .select('member_ids')
+      .eq('id', coupleId)
+      .maybeSingle();
+
+    if (data?.member_ids && Array.isArray(data.member_ids)) {
+      const partnerId = data.member_ids.find((id: string) => id !== senderId);
+      return partnerId || null;
+    }
+  } catch (err) {
+    console.warn('Error resolving partner ID:', err);
+  }
+  return null;
 };
 
 // ==========================================
@@ -74,6 +95,7 @@ export const roomService = {
   createMemory: async (memory: {
     coupleId: string;
     uploaderId: string;
+    receiverId?: string;
     creatorName?: string;
     title: string;
     caption: string;
@@ -132,6 +154,21 @@ export const roomService = {
           console.error('Failed to sync memory to Supabase:', error);
         } else if (data) {
           newMemory.creator_name = data.profiles?.name || memory.creatorName;
+        }
+
+        // Deliver personal notification to partner
+        const targetReceiverId = memory.receiverId || (await resolvePartnerIdAsync(memory.coupleId, memory.uploaderId));
+        if (targetReceiverId) {
+          await roomService.createNotification({
+            roomId: memory.coupleId,
+            senderId: memory.uploaderId,
+            senderName: memory.creatorName,
+            receiverId: targetReceiverId,
+            type: 'photo_shared',
+            title: `📸 Foto Kenangan Baru (${memory.creatorName || 'Pasangan'})`,
+            body: memory.title || 'Foto baru ditambahkan ke Brankas Kenangan.',
+            referenceId: newId
+          }).catch(() => null);
         }
 
         // Broadcast realtime notification to room partner
@@ -268,6 +305,7 @@ export const roomService = {
   createLoveNote: async (note: {
     coupleId: string;
     senderId: string;
+    receiverId?: string;
     senderName?: string;
     title: string;
     content: string;
@@ -307,6 +345,21 @@ export const roomService = {
             unlock_date: note.unlockDate || null,
             is_opened: false
           }]);
+
+        // Deliver personal notification to partner inbox
+        const targetReceiverId = note.receiverId || (await resolvePartnerIdAsync(note.coupleId, note.senderId));
+        if (targetReceiverId) {
+          await roomService.createNotification({
+            roomId: note.coupleId,
+            senderId: note.senderId,
+            senderName: note.senderName,
+            receiverId: targetReceiverId,
+            type: 'love_letter',
+            title: `💌 Surat Cinta Baru (${note.senderName || 'Pasangan'})`,
+            body: note.title,
+            referenceId: newId
+          }).catch(() => null);
+        }
 
         // Broadcast to partner
         const channel = supabase.channel(`couple_room_${note.coupleId}`);
@@ -454,6 +507,7 @@ export const roomService = {
   createHeartMessage: async (msg: {
     coupleId: string;
     senderId: string;
+    receiverId?: string;
     senderName?: string;
     content: string;
     moodEmoji?: string;
@@ -476,6 +530,7 @@ export const roomService = {
 
     if (isRemote) {
       try {
+        // 1. Insert into shared room heart_notes table (shared history)
         await supabase
           .from('heart_notes')
           .insert([{
@@ -487,6 +542,21 @@ export const roomService = {
             content: msg.content,
             is_shared: true
           }]);
+
+        // 2. Deliver personal notification to receiver (User B inbox)
+        const targetReceiverId = msg.receiverId || (await resolvePartnerIdAsync(msg.coupleId, msg.senderId));
+        if (targetReceiverId) {
+          await roomService.createNotification({
+            roomId: msg.coupleId,
+            senderId: msg.senderId,
+            senderName: msg.senderName,
+            receiverId: targetReceiverId,
+            type: 'miss_you',
+            title: `💌 ${msg.senderName || 'Pasanganmu'} Kangen Kamu 🤍`,
+            body: msg.content,
+            referenceId: newId
+          }).catch(() => null);
+        }
       } catch (err) {
         console.warn('Supabase createHeartMessage error:', err);
       }
@@ -1169,7 +1239,160 @@ export const roomService = {
   },
 
   // ==========================================
-  // 8. SERVER-VALIDATED UNIQUE INVITE CODE
+  // 8. PERSONAL USER NOTIFICATIONS (INBOX)
+  // ==========================================
+
+  createNotification: async (notif: {
+    roomId: string;
+    senderId: string;
+    senderName?: string;
+    receiverId: string;
+    type: string;
+    title: string;
+    body: string;
+    referenceId?: string;
+  }): Promise<AppNotification | null> => {
+    if (!notif.receiverId || notif.senderId === notif.receiverId) return null;
+    const isRemote = isRemoteCouple(notif.roomId) && isUuid(notif.receiverId);
+    const newId = isRemote ? generateUuid() : 'notif_' + Math.random().toString(36).substring(2, 9);
+    const createdAt = new Date().toISOString();
+
+    const newNotif: AppNotification = {
+      id: newId,
+      room_id: notif.roomId,
+      sender_id: notif.senderId,
+      sender_name: notif.senderName || 'Pasangan',
+      receiver_id: notif.receiverId,
+      type: notif.type,
+      title: notif.title,
+      body: notif.body,
+      reference_id: notif.referenceId,
+      is_read: false,
+      created_at: createdAt
+    };
+
+    if (isRemote) {
+      try {
+        await supabase
+          .from('notifications')
+          .insert([{
+            id: newId,
+            room_id: notif.roomId,
+            sender_id: notif.senderId,
+            receiver_id: notif.receiverId,
+            type: notif.type,
+            title: notif.title,
+            body: notif.body,
+            reference_id: notif.referenceId || null,
+            is_read: false
+          }]);
+      } catch (err) {
+        console.warn('Supabase createNotification error:', err);
+      }
+    }
+
+    return newNotif;
+  },
+
+  fetchUserNotifications: async (userId?: string | null): Promise<AppNotification[]> => {
+    if (!userId || !isUuid(userId)) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*, profiles:sender_id(name)')
+        .eq('receiver_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.warn('Error fetching notifications:', error.message);
+        return [];
+      }
+
+      if (data) {
+        return data.map((row: any) => ({
+          id: row.id,
+          room_id: row.room_id,
+          sender_id: row.sender_id,
+          sender_name: row.profiles?.name || 'Pasangan',
+          receiver_id: row.receiver_id,
+          type: row.type,
+          title: row.title,
+          body: row.body,
+          reference_id: row.reference_id,
+          is_read: Boolean(row.is_read),
+          created_at: row.created_at || new Date().toISOString()
+        }));
+      }
+    } catch (err) {
+      console.warn('Supabase fetchUserNotifications error:', err);
+    }
+
+    return [];
+  },
+
+  markNotificationRead: async (id: string): Promise<void> => {
+    if (!isUuid(id)) return;
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+    } catch (err) {
+      console.warn('Supabase markNotificationRead error:', err);
+    }
+  },
+
+  subscribeToUserNotifications: (userId: string | null | undefined, onNotification: (notif: AppNotification) => void) => {
+    if (!userId || !isUuid(userId)) return () => {};
+
+    const channel = supabase
+      .channel(`realtime_user_notifications_${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `receiver_id=eq.${userId}`
+        },
+        async (payload: any) => {
+          const row = payload.new;
+          if (row) {
+            let senderName = 'Pasangan';
+            try {
+              const { data: p } = await supabase.from('profiles').select('name').eq('id', row.sender_id).maybeSingle();
+              if (p?.name) senderName = p.name;
+            } catch {}
+
+            const notifItem: AppNotification = {
+              id: row.id,
+              room_id: row.room_id,
+              sender_id: row.sender_id,
+              sender_name: senderName,
+              receiver_id: row.receiver_id,
+              type: row.type,
+              title: row.title,
+              body: row.body,
+              reference_id: row.reference_id,
+              is_read: Boolean(row.is_read),
+              created_at: row.created_at
+            };
+
+            onNotification(notifItem);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  },
+
+  // ==========================================
+  // 9. SERVER-VALIDATED UNIQUE INVITE CODE
   // ==========================================
 
   generateUniqueInviteCodeAsync: async (): Promise<string> => {

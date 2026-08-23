@@ -159,3 +159,17 @@ export type HeartMessage = {
   mood_emoji?: string;
   created_at: string;
 };
+
+export type AppNotification = {
+  id: string;
+  room_id: string;
+  sender_id: string;
+  sender_name?: string;
+  receiver_id: string;
+  type: 'miss_you' | 'love_letter' | 'photo_shared' | 'booth_invite' | string;
+  title: string;
+  body: string;
+  reference_id?: string;
+  is_read: boolean;
+  created_at: string;
+};

@@ -313,9 +313,9 @@ export const OnboardingPage: React.FC = () => {
                                 {isFull ? '🤍 Terhubung 2 Anggota' : '⏳ Menunggu Pasangan'}
                               </span>
 
-                              {room.user_city && (
+                              {(room.city || room.user_city) && (
                                 <span className="text-[11px] text-foreground-muted">
-                                  • {room.user_city}
+                                  • {room.city || room.user_city}
                                 </span>
                               )}
                             </div>

@@ -538,6 +538,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [couple?.id, user?.id, syncRemoteSession, setCurrentView]);
 
+  // 3. User Personal Notifications Listener (Database Realtime + Push Inbox)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const unsubNotifs = roomService.subscribeToUserNotifications(user.id, (notif) => {
+      // If miss_you notification, trigger in-app pulse alert
+      if (notif.type === 'miss_you') {
+        setPulseTriggered({
+          from: notif.sender_name || partner?.name || 'Pasanganmu',
+          message: notif.body,
+          timestamp: Date.now()
+        });
+      }
+
+      // Dispatch native OS / PWA device notification
+      deviceNotification.send(notif.title, {
+        body: notif.body,
+        tag: `usframe_${notif.type}`,
+        data: {
+          roomId: notif.room_id,
+          referenceId: notif.reference_id,
+          type: notif.type
+        },
+        onClick: () => {
+          window.focus();
+          if (notif.type === 'love_letter') {
+            setCurrentView('together');
+          } else if (notif.type === 'photo_shared') {
+            setCurrentView('memories');
+          } else if (notif.type === 'booth_invite') {
+            setCurrentView('usframe');
+          }
+        }
+      });
+    });
+
+    return () => {
+      unsubNotifs();
+    };
+  }, [user?.id, partner?.name, setCurrentView]);
+
   const loginDemo = () => {
     storage.loadDemoData();
     setUserState(INITIAL_USER);

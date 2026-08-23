@@ -162,6 +162,20 @@ CREATE TABLE IF NOT EXISTS public.daily_questions (
   UNIQUE(couple_id, question_date)
 );
 
+-- 11. Personal User Notifications
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  room_id UUID REFERENCES public.couples(id) ON DELETE CASCADE,
+  sender_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  receiver_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- 'miss_you', 'love_letter', 'photo_shared', 'booth_invite'
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  reference_id TEXT,
+  is_read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Row Level Security (RLS) Setup
 ALTER TABLE public.couples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -173,6 +187,7 @@ ALTER TABLE public.milestones ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.countdowns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bucket_list_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_questions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Clean Up Old Policies
 DROP POLICY IF EXISTS "Users can view relevant profiles" ON public.profiles;
@@ -221,6 +236,7 @@ CREATE POLICY "Public milestones policy" ON public.milestones FOR ALL USING (tru
 CREATE POLICY "Public countdowns policy" ON public.countdowns FOR ALL USING (true);
 CREATE POLICY "Public bucket list policy" ON public.bucket_list_items FOR ALL USING (true);
 CREATE POLICY "Public daily questions policy" ON public.daily_questions FOR ALL USING (true);
+CREATE POLICY "Public notifications policy" ON public.notifications FOR ALL USING (true);
 
 -- RPC Helper for Atomic Room Join (Works with both authenticated session and explicit user UUID)
 DROP FUNCTION IF EXISTS public.join_couple_room(TEXT);
@@ -366,5 +382,12 @@ BEGIN
     WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'daily_questions'
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.daily_questions;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
   END IF;
 END $$;

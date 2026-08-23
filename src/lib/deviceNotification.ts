@@ -57,10 +57,11 @@ export const deviceNotification = {
     }
   },
 
-  // Dispatch native OS / Device notification
+  // Dispatch native OS / Device notification (Works via ServiceWorker or Notification API)
   send: (title: string, options?: {
     body?: string;
     icon?: string;
+    badge?: string;
     tag?: string;
     data?: any;
     onClick?: () => void;
@@ -69,31 +70,50 @@ export const deviceNotification = {
     deviceNotification.playNotificationSound();
     deviceNotification.vibrate();
 
-    // 2. If supported and granted, trigger native device notification
+    // 2. If supported and granted, trigger native device / PWA notification
     if (deviceNotification.isSupported() && Notification.permission === 'granted') {
-      try {
-        const notif = new Notification(title, {
-          body: options?.body || 'Sentuhan cinta dari pasanganmu 🤍',
-          icon: options?.icon || '/favicon.ico',
-          badge: '/favicon.ico',
-          tag: options?.tag || 'usframe_pulse',
-          silent: false
-        });
+      const notifOptions: NotificationOptions = {
+        body: options?.body || 'Sentuhan cinta dari pasanganmu 🤍',
+        icon: options?.icon || '/icon-192.png',
+        badge: options?.badge || '/icon-192.png',
+        tag: options?.tag || 'usframe_pulse',
+        silent: false,
+        data: options?.data || { url: '/' }
+      };
 
-        if (options?.onClick) {
-          notif.onclick = () => {
-            window.focus();
-            options.onClick!();
-            notif.close();
-          };
-        } else {
-          notif.onclick = () => {
-            window.focus();
-            notif.close();
-          };
+      // Try Service Worker registration first (vital for Android / Mobile PWA background notifications)
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.ready) {
+        navigator.serviceWorker.ready
+          .then((registration) => {
+            return registration.showNotification(title, notifOptions);
+          })
+          .catch(() => {
+            try {
+              const notif = new Notification(title, notifOptions);
+              if (options?.onClick) {
+                notif.onclick = () => {
+                  window.focus();
+                  options.onClick!();
+                  notif.close();
+                };
+              }
+            } catch (err) {
+              console.warn('Fallback notification error:', err);
+            }
+          });
+      } else {
+        try {
+          const notif = new Notification(title, notifOptions);
+          if (options?.onClick) {
+            notif.onclick = () => {
+              window.focus();
+              options.onClick!();
+              notif.close();
+            };
+          }
+        } catch (err) {
+          console.warn('Native notification error:', err);
         }
-      } catch (err) {
-        console.warn('Native notification dispatch error:', err);
       }
     }
   }
