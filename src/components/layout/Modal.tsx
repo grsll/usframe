@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -39,7 +40,7 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const maxWidthClasses = {
     sm: 'max-w-sm',
@@ -51,9 +52,9 @@ export const Modal: React.FC<ModalProps> = ({
     '4xl': 'max-w-4xl'
   };
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto"
+      className="fixed inset-0 z-9999 flex items-center justify-center p-3 sm:p-6 bg-black/65 backdrop-blur-xs animate-fade-in overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -63,7 +64,7 @@ export const Modal: React.FC<ModalProps> = ({
       <div
         ref={modalRef}
         className={cn(
-          "relative w-full max-w-[92vw] sm:max-w-lg bg-surface border border-border rounded-3xl shadow-elevated overflow-hidden animate-fade-in-up flex flex-col max-h-[88vh] my-auto",
+          "relative w-full max-w-[92vw] sm:max-w-lg bg-surface border border-border rounded-3xl shadow-2xl overflow-hidden animate-fade-in-up flex flex-col max-h-[88vh] my-auto",
           maxWidthClasses[maxWidth],
           className
         )}
@@ -92,4 +93,6 @@ export const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 };
