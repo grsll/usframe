@@ -101,8 +101,8 @@ export const AuthPage: React.FC = () => {
         
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-terracotta-500 text-white flex items-center justify-center font-serif text-2xl font-bold shadow-soft mx-auto">
-            US
+          <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-soft mx-auto ring-2 ring-terracotta-200 dark:ring-terracotta-800">
+            <img src="/icon.svg" alt="USFRAME" className="w-full h-full object-cover" />
           </div>
           <h2 className="font-serif text-2xl sm:text-3xl font-medium text-foreground tracking-tight">
             {mode === 'register' ? 'Buat Akun Ruang Berdua' : 'Selamat Datang Kembali'}

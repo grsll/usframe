@@ -16,8 +16,8 @@ export const LandingPage: React.FC = () => {
             onClick={() => couple ? setCurrentView('home') : setCurrentView('landing')}
             className="flex items-center gap-3 cursor-pointer text-left"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-terracotta-500 text-white flex items-center justify-center font-serif text-lg sm:text-xl font-bold shadow-soft">
-              US
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden shadow-soft shrink-0">
+              <img src="/icon.svg" alt="USFRAME" className="w-full h-full object-cover" />
             </div>
             <span className="font-serif text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
               USFRAME

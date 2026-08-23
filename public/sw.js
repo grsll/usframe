@@ -90,7 +90,10 @@ self.addEventListener('push', (event) => {
     body: data.body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    vibrate: [200, 100, 200],
+    vibrate: [300, 100, 300, 100, 300],
+    renotify: true,
+    requireInteraction: true,
+    tag: data.tag || 'usframe_pulse_' + Date.now(),
     data: {
       url: data.url || '/'
     }

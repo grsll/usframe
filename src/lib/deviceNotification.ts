@@ -68,21 +68,24 @@ export const deviceNotification = {
   }) => {
     // 1. Play sound & vibrate
     deviceNotification.playNotificationSound();
-    deviceNotification.vibrate();
+    deviceNotification.vibrate([300, 100, 300, 100, 300]);
 
     // 2. If supported and granted, trigger native device / PWA notification
     if (deviceNotification.isSupported() && Notification.permission === 'granted') {
-      const notifOptions: NotificationOptions = {
+      const notifOptions: any = {
         body: options?.body || 'Sentuhan cinta dari pasanganmu 🤍',
         icon: options?.icon || '/icon-192.png',
         badge: options?.badge || '/icon-192.png',
-        tag: options?.tag || 'usframe_pulse',
+        tag: options?.tag || `usframe_${Date.now()}`,
+        renotify: true,
+        requireInteraction: true,
+        vibrate: [300, 100, 300, 100, 300],
         silent: false,
         data: options?.data || { url: '/' }
       };
 
       // Try Service Worker registration first (vital for Android / Mobile PWA background notifications)
-      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.ready
           .then((registration) => {
             return registration.showNotification(title, notifOptions);

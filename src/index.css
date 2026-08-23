@@ -41,15 +41,15 @@
     --bg-main: #FAF8F5;
     --bg-surface: #FFFFFF;
     --bg-surface-elevated: #FFFFFF;
-    --bg-surface-subtle: #F5F2EB;
+    --bg-surface-subtle: #F3EFE8;
     
-    --border-subtle: #EDE8E1;
-    --border-strong: #DCD4C7;
+    --border-subtle: #E4DED5;
+    --border-strong: #D1C9BC;
     
-    /* Elegant, warm, readable text */
-    --text-main: #1C1917;
-    --text-muted: #44403C;
-    --text-subtle: #57534E;
+    /* High contrast, warm, razor-sharp readable text */
+    --text-main: #141210;
+    --text-muted: #383330;
+    --text-subtle: #4D4742;
     
     --primary-main: #D95D39;
     --primary-hover: #C24726;

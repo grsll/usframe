@@ -50,8 +50,8 @@ export const Header: React.FC = () => {
             onClick={() => setCurrentView('home')}
             className="flex items-center gap-2 text-left group cursor-pointer shrink-0"
           >
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-terracotta-500 text-white flex items-center justify-center font-serif text-base sm:text-lg font-bold shadow-sm group-hover:bg-terracotta-600 transition-colors">
-              US
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden shadow-xs ring-1 ring-border group-hover:scale-105 transition-transform shrink-0">
+              <img src="/icon.svg" alt="USFRAME" className="w-full h-full object-cover" />
             </div>
             <div className="hidden xs:block truncate">
               <span className="font-serif font-semibold text-foreground text-sm sm:text-base tracking-tight block truncate">

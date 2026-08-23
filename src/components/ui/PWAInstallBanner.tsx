@@ -90,14 +90,14 @@ export const PWAInstallBanner: React.FC = () => {
           <div className="absolute top-0 right-0 w-24 h-24 bg-terracotta-500/10 rounded-full blur-2xl pointer-events-none" />
 
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-terracotta-500 text-white flex items-center justify-center shadow-md shrink-0">
-              <Smartphone className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-md shrink-0 border border-terracotta-200 dark:border-terracotta-800">
+              <img src="/icon.svg" alt="USFRAME App" className="w-full h-full object-cover" />
             </div>
             <div>
               <h4 className="font-serif text-sm font-semibold text-foreground flex items-center gap-1.5 leading-tight">
                 <span>Pasang USFRAME di HP</span>
                 <span className="px-1.5 py-0.5 rounded-full bg-terracotta-100 dark:bg-terracotta-950 text-terracotta-700 dark:text-terracotta-300 text-[10px] font-sans font-bold">
-                  App
+                  App 🤍
                 </span>
               </h4>
               <p className="text-[11px] text-foreground-muted leading-tight mt-0.5">

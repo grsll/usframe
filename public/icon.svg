@@ -1,56 +1,132 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
+    <!-- Cute Warm Gradient Background -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#E26A47" />
-      <stop offset="50%" stop-color="#D95D39" />
-      <stop offset="100%" stop-color="#B33E1D" />
+      <stop offset="0%" stop-color="#FFA07A" />
+      <stop offset="45%" stop-color="#E26A47" />
+      <stop offset="100%" stop-color="#E64980" />
     </linearGradient>
+
+    <!-- Cute Soft Card Gradient -->
     <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#FFFFFF" />
-      <stop offset="100%" stop-color="#FAF5EE" />
+      <stop offset="100%" stop-color="#FFF5F0" />
     </linearGradient>
+
+    <!-- Cheek Blush Gradient -->
+    <radialGradient id="blushGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FF6B8B" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#FF6B8B" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Sparkle Glow -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
   </defs>
 
-  <!-- Background Base -->
-  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" />
+  <!-- Squircle Base for App Icon -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
 
-  <!-- Inner Soft Border -->
-  <rect x="20" y="20" width="472" height="472" rx="100" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="8" />
+  <!-- Soft Cute Inner Border -->
+  <rect x="18" y="18" width="476" height="476" rx="112" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="8" />
 
-  <!-- Photostrip Icon Shape -->
-  <g transform="translate(106, 76)">
-    <!-- Main Card -->
-    <rect x="0" y="0" width="300" height="360" rx="36" fill="url(#cardGrad)" />
-    
-    <!-- Top Photo Frame (Dark) -->
-    <rect x="28" y="28" width="244" height="160" rx="20" fill="#1C1917" />
-    
-    <!-- Duo Split Line in Photo Frame -->
-    <line x1="150" y1="28" x2="150" y2="188" stroke="#332E2B" stroke-width="3" />
-    
-    <!-- Left Person Silhouette / Sparkle -->
-    <circle cx="90" cy="92" r="22" fill="#E26A47" />
-    <path d="M54 160 C54 130 70 120 90 120 C110 120 126 130 126 160 Z" fill="#E26A47" />
-    
-    <!-- Right Person Silhouette -->
-    <circle cx="210" cy="92" r="22" fill="#FAF5EE" fill-opacity="0.9" />
-    <path d="M174 160 C174 130 190 120 210 120 C230 120 246 130 246 160 Z" fill="#FAF5EE" fill-opacity="0.9" />
+  <!-- Sparkles around the frame -->
+  <g fill="#FFF9DB" filter="url(#glow)">
+    <path d="M 100 85 Q 100 100 85 100 Q 100 100 100 115 Q 100 100 115 100 Q 100 100 100 85 Z" />
+    <path d="M 415 95 Q 415 110 400 110 Q 415 110 415 125 Q 415 110 430 110 Q 415 110 415 95 Z" transform="scale(0.8) translate(110, 10)" />
+    <path d="M 90 410 Q 90 420 80 420 Q 90 420 90 430 Q 90 420 100 420 Q 90 420 90 410 Z" transform="scale(0.9) translate(10, 0)" />
+    <circle cx="430" cy="400" r="6" fill="#FFF9DB" />
+    <circle cx="75" cy="240" r="5" fill="#FFFFFF" fill-opacity="0.8" />
+  </g>
 
-    <!-- Center Heart Emblem Connecting Both -->
-    <g transform="translate(150, 108)">
-      <circle cx="0" cy="0" r="22" fill="#D95D39" stroke="#FFFFFF" stroke-width="4" />
-      <path d="M0 6 C0 6 -10 -2 -10 -7 C-10 -11 -7 -14 -3 -14 C-1 -14 0 -12 0 -12 C0 -12 1 -14 3 -14 C7 -14 10 -11 10 -7 C10 -2 0 6 0 6 Z" fill="#FFFFFF" />
+  <!-- Cute Polaroids Card Base -->
+  <g transform="translate(96, 68)">
+    <rect x="0" y="0" width="320" height="376" rx="42" fill="url(#cardGrad)" filter="drop-shadow(0 14px 28px rgba(0,0,0,0.15))" />
+    
+    <!-- Outer Soft Border of Polaroid -->
+    <rect x="0" y="0" width="320" height="376" rx="42" fill="none" stroke="#FFE3D6" stroke-width="4" />
+
+    <!-- Cute Big Heart connecting the two -->
+    <g transform="translate(160, 48)">
+      <path d="M 0 28 C -3 -3, -38 -8, -38 20 C -38 46, 0 74, 0 84 C 0 74, 38 46, 38 20 C 38 -8, 3 -3, 0 28 Z" fill="#FF4D6D" filter="drop-shadow(0 4px 10px rgba(255,77,109,0.4))" />
+      <!-- Heart Highlight -->
+      <path d="M -16 12 C -24 16, -26 26, -24 34" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-opacity="0.7" />
     </g>
 
-    <!-- Bold US Typography -->
-    <text x="150" y="270" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Playfair Display', serif" font-size="62" font-weight="900" fill="#1C1917" text-anchor="middle" letter-spacing="4">US</text>
-    
-    <!-- Subtitle -->
-    <text x="150" y="308" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Plus Jakarta Sans', sans-serif" font-size="16" font-weight="800" fill="#78716C" text-anchor="middle" letter-spacing="3">PHOTOBOOTH</text>
+    <!-- Character 1: Left Cute Kitty / Mascot (Terracotta/Warm) -->
+    <g transform="translate(62, 130)">
+      <!-- Ear Left -->
+      <polygon points="12,18 2,52 38,40" fill="#E26A47" />
+      <polygon points="14,24 8,48 34,40" fill="#FFA07A" />
+      <!-- Ear Right -->
+      <polygon points="76,18 86,52 50,40" fill="#E26A47" />
+      <polygon points="74,24 80,48 54,40" fill="#FFA07A" />
+      
+      <!-- Head -->
+      <circle cx="44" cy="62" r="42" fill="#E26A47" />
 
-    <!-- Bottom Accent Dots -->
-    <circle cx="80" cy="336" r="5" fill="#D95D39" />
-    <circle cx="150" cy="336" r="5" fill="#D95D39" />
-    <circle cx="220" cy="336" r="5" fill="#D95D39" />
+      <!-- Cute Happy Closed Eyes ^^ -->
+      <path d="M 24 58 Q 33 50 40 58" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" />
+      <path d="M 52 58 Q 61 50 68 58" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round" />
+
+      <!-- Cute Little Nose & Mouth -->
+      <path d="M 44 67 Q 44 73 40 75" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+      <path d="M 44 67 Q 44 73 48 75" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+      <circle cx="44" cy="65" r="2.5" fill="#FFFFFF" />
+
+      <!-- Blush Cheeks -->
+      <ellipse cx="22" cy="68" rx="8" ry="5" fill="#FF85A1" />
+      <ellipse cx="68" cy="68" rx="8" ry="5" fill="#FF85A1" />
+
+      <!-- Body / Hugging Paw -->
+      <path d="M 12 98 C 12 85 25 80 44 80 C 63 80 76 85 76 98 Z" fill="#D95D39" />
+      <ellipse cx="62" cy="88" rx="14" ry="10" fill="#FFA07A" transform="rotate(-15, 62, 88)" />
+    </g>
+
+    <!-- Character 2: Right Cute Bunny / Mascot (Cream/Soft Rose) -->
+    <g transform="translate(170, 126)">
+      <!-- Bunny Ear Left -->
+      <ellipse cx="24" cy="22" rx="12" ry="28" fill="#FFF5F0" stroke="#FFE3D6" stroke-width="2" transform="rotate(-10, 24, 22)" />
+      <ellipse cx="24" cy="22" rx="6" ry="18" fill="#FFB5C5" transform="rotate(-10, 24, 22)" />
+      <!-- Bunny Ear Right -->
+      <ellipse cx="64" cy="20" rx="12" ry="28" fill="#FFF5F0" stroke="#FFE3D6" stroke-width="2" transform="rotate(15, 64, 20)" />
+      <ellipse cx="64" cy="20" rx="6" ry="18" fill="#FFB5C5" transform="rotate(15, 64, 20)" />
+
+      <!-- Head -->
+      <circle cx="44" cy="66" r="42" fill="#FFF5F0" stroke="#FFE3D6" stroke-width="2" />
+
+      <!-- Cute Happy Closed Eyes ^^ -->
+      <path d="M 22 62 Q 31 54 38 62" fill="none" stroke="#4A3E3D" stroke-width="4.5" stroke-linecap="round" />
+      <path d="M 50 62 Q 59 54 66 62" fill="none" stroke="#4A3E3D" stroke-width="4.5" stroke-linecap="round" />
+
+      <!-- Cute Smile :3 -->
+      <path d="M 44 71 Q 44 76 40 78" fill="none" stroke="#4A3E3D" stroke-width="3" stroke-linecap="round" />
+      <path d="M 44 71 Q 44 76 48 78" fill="none" stroke="#4A3E3D" stroke-width="3" stroke-linecap="round" />
+      <polygon points="41,69 47,69 44,72" fill="#FF6B8B" />
+
+      <!-- Blush Cheeks -->
+      <ellipse cx="20" cy="71" rx="9" ry="6" fill="#FF85A1" fill-opacity="0.8" />
+      <ellipse cx="68" cy="71" rx="9" ry="6" fill="#FF85A1" fill-opacity="0.8" />
+
+      <!-- Body / Hugging Paw -->
+      <path d="M 12 102 C 12 89 25 84 44 84 C 63 84 76 89 76 102 Z" fill="#FFEAE0" />
+      <ellipse cx="26" cy="92" rx="14" ry="10" fill="#FFF5F0" stroke="#FFE3D6" stroke-width="2" transform="rotate(15, 26, 92)" />
+    </g>
+
+    <!-- Bottom Typography & Little Hearts -->
+    <g transform="translate(160, 290)">
+      <!-- Main Brand Name -->
+      <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Segoe UI', Roboto, sans-serif" font-size="34" font-weight="900" fill="#292524" text-anchor="middle" letter-spacing="4">USFRAME</text>
+      
+      <!-- Cute Tagline -->
+      <text x="0" y="24" font-family="-apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', sans-serif" font-size="12" font-weight="700" fill="#E26A47" text-anchor="middle" letter-spacing="2">RUANG BERDUA 🤍</text>
+
+      <!-- Decorative Cute Hearts below -->
+      <path d="M -36 40 C -38 35, -45 35, -45 39 C -45 44, -36 49, -36 51 C -36 49, -27 44, -27 39 C -27 35, -34 35, -36 40 Z" fill="#FFA07A" />
+      <path d="M 0 38 C -2 33, -9 33, -9 37 C -9 42, 0 47, 0 49 C 0 47, 9 42, 9 37 C 9 33, 2 33, 0 38 Z" fill="#FF4D6D" />
+      <path d="M 36 40 C 34 35, 27 35, 27 39 C 27 44, 36 49, 36 51 C 36 49, 45 44, 45 39 C 45 35, 38 35, 36 40 Z" fill="#FFA07A" />
+    </g>
   </g>
 </svg>
