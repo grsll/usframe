@@ -73,16 +73,22 @@ export const USFrameEditor: React.FC<USFrameEditorProps> = ({
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!previewDataUrl) return;
     setIsSaved(true);
-    playSuccessChime();
-    confetti({
-      particleCount: 50,
-      spread: 70,
-      origin: { y: 0.7 }
-    });
-    onSaveToMemories(previewDataUrl, customization.customText);
+    try {
+      await onSaveToMemories(previewDataUrl, customization.customText);
+      playSuccessChime();
+      confetti({
+        particleCount: 50,
+        spread: 70,
+        origin: { y: 0.7 }
+      });
+    } catch (err: any) {
+      console.error('Failed to save memory:', err);
+      setIsSaved(false);
+      alert('Gagal menyimpan kenangan: ' + (err.message || 'Unknown error'));
+    }
   };
 
   return (

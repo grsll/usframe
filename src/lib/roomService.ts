@@ -167,9 +167,7 @@ export const roomService = {
 
     if (isRemote) {
       try {
-        const { error } = await supabase
-          .from('memories')
-          .insert([{
+        let insertPayload: any = {
             id: newId,
             couple_id: memory.coupleId,
             uploader_id: isUuid(memory.uploaderId) ? memory.uploaderId : null,
@@ -185,7 +183,17 @@ export const roomService = {
             category: memory.category || 'Kencan',
             is_favorite: Boolean(memory.isFavorite),
             memory_date: dateStr
-          }]);
+          };
+          let { error } = await supabase.from('memories').insert([insertPayload]);
+          if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the'))) {
+            console.warn('Falling back to legacy memories schema due to missing columns');
+            delete insertPayload.creator_name;
+            delete insertPayload.thumbnail_url;
+            delete insertPayload.storage_path;
+            delete insertPayload.thumbnail_path;
+            const retry = await supabase.from('memories').insert([insertPayload]);
+            error = retry.error;
+          }
 
         if (error) {
           console.error('Failed to sync memory to Supabase:', error);
@@ -779,9 +787,7 @@ export const roomService = {
 
     if (isRemote) {
       try {
-        const { error } = await supabase
-          .from('milestones')
-          .insert([{
+        let insertPayload: any = {
             id: newId,
             couple_id: m.coupleId,
             title: m.title,
@@ -793,7 +799,16 @@ export const roomService = {
             storage_path: finalStoragePath || null,
             thumbnail_path: finalThumbnailPath || null,
             category: m.category || 'dating'
-          }]);
+          };
+          let { error } = await supabase.from('milestones').insert([insertPayload]);
+          if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the'))) {
+            console.warn('Falling back to legacy milestones schema due to missing columns');
+            delete insertPayload.thumbnail_url;
+            delete insertPayload.storage_path;
+            delete insertPayload.thumbnail_path;
+            const retry = await supabase.from('milestones').insert([insertPayload]);
+            error = retry.error;
+          }
 
         if (error) {
           console.error('Supabase createMilestone insert error:', error);

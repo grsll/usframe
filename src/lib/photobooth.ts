@@ -302,7 +302,7 @@ export async function renderUSFrameCanvas(options: RenderOptions): Promise<strin
     });
   }
 
-  return canvas.toDataURL('image/png', 0.95);
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 function applyCanvasFilter(ctx: CanvasRenderingContext2D, filter: string) {
