@@ -185,32 +185,28 @@ export const roomService = {
             memory_date: dateStr
           };
           let { error } = await supabase.from('memories').insert([insertPayload]);
-          if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the'))) {
-            console.warn('Falling back to legacy memories schema due to missing columns');
-            delete insertPayload.creator_name;
-            delete insertPayload.thumbnail_url;
-            delete insertPayload.storage_path;
-            delete insertPayload.thumbnail_path;
-            
-            if (error.message.includes('uploader_id')) {
-              insertPayload.created_by = insertPayload.uploader_id;
-              delete insertPayload.uploader_id;
+          
+          let retryCount = 0;
+          while (error && error.message.includes('Could not find the') && retryCount < 10) {
+            const match = error.message.match(/Could not find the '([^']+)' column/);
+            if (match && match[1]) {
+              const missingCol = match[1];
+              console.warn('Auto-stripping missing column:', missingCol);
+              delete insertPayload[missingCol];
+              
+              if (missingCol === 'uploader_id') {
+                insertPayload.created_by = isUuid(memory.uploaderId) ? memory.uploaderId : null;
+              }
+              
+              let retry = await supabase.from('memories').insert([insertPayload]);
+              error = retry.error;
+            } else {
+              break;
             }
-            
-            let retry = await supabase.from('memories').insert([insertPayload]);
-            error = retry.error;
-            
-            if (error && error.message.includes('Could not find the')) {
-               if (insertPayload.uploader_id) {
-                 insertPayload.created_by = insertPayload.uploader_id;
-                 delete insertPayload.uploader_id;
-               }
-               retry = await supabase.from('memories').insert([insertPayload]);
-               error = retry.error;
-            }
+            retryCount++;
           }
-
-        if (error) {
+          
+          if (error) {
           console.error('Failed to sync memory to Supabase:', error);
           // Rollback storage objects on DB failure to prevent orphan files
           if (finalStoragePath || finalThumbnailPath) {
@@ -633,11 +629,25 @@ export const roomService = {
             content: msg.content
           };
           let { error } = await supabase.from('heart_notes').insert([insertPayload]);
-          if (error && error.message.includes('Could not find the \'content\' column')) {
-            insertPayload.note = insertPayload.content;
-            delete insertPayload.content;
-            const retry = await supabase.from('heart_notes').insert([insertPayload]);
-            error = retry.error;
+          
+          let retryCountH = 0;
+          while (error && error.message.includes('Could not find the') && retryCountH < 5) {
+            const match = error.message.match(/Could not find the '([^']+)' column/);
+            if (match && match[1]) {
+              const missingCol = match[1];
+              console.warn('Auto-stripping missing column:', missingCol);
+              delete insertPayload[missingCol];
+              
+              if (missingCol === 'content') {
+                insertPayload.note = msg.content;
+              }
+              
+              let retry = await supabase.from('heart_notes').insert([insertPayload]);
+              error = retry.error;
+            } else {
+              break;
+            }
+            retryCountH++;
           }
 
         if (error) {
@@ -821,13 +831,21 @@ export const roomService = {
             category: m.category || 'dating'
           };
           let { error } = await supabase.from('milestones').insert([insertPayload]);
-          if (error && (error.message.includes('schema cache') || error.message.includes('Could not find the'))) {
-            console.warn('Falling back to legacy milestones schema due to missing columns');
-            delete insertPayload.thumbnail_url;
-            delete insertPayload.storage_path;
-            delete insertPayload.thumbnail_path;
-            const retry = await supabase.from('milestones').insert([insertPayload]);
-            error = retry.error;
+          
+          let retryCountM = 0;
+          while (error && error.message.includes('Could not find the') && retryCountM < 10) {
+            const match = error.message.match(/Could not find the '([^']+)' column/);
+            if (match && match[1]) {
+              const missingCol = match[1];
+              console.warn('Auto-stripping missing column:', missingCol);
+              delete insertPayload[missingCol];
+              
+              let retry = await supabase.from('milestones').insert([insertPayload]);
+              error = retry.error;
+            } else {
+              break;
+            }
+            retryCountM++;
           }
 
         if (error) {
