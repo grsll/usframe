@@ -73,7 +73,7 @@ export const roomService = {
         const memories: Memory[] = data.map((row: any) => ({
           id: row.id,
           couple_id: row.couple_id,
-          created_by: row.created_by || row.couple_id,
+          created_by: row.uploader_id || row.created_by || row.couple_id,
           creator_name: row.creator_name || 'Pasangan',
           title: row.title || 'Kenangan Bersama',
           caption: row.caption || '',
@@ -172,7 +172,7 @@ export const roomService = {
           .insert([{
             id: newId,
             couple_id: memory.coupleId,
-            created_by: isUuid(memory.uploaderId) ? memory.uploaderId : null,
+            uploader_id: isUuid(memory.uploaderId) ? memory.uploaderId : null,
             creator_name: memory.creatorName || null,
             title: memory.title,
             caption: memory.caption,
@@ -609,7 +609,7 @@ export const roomService = {
             couple_id: msg.coupleId,
             sender_id: msg.senderId,
             category: 'heart_pulse',
-            note: msg.content
+            content: msg.content
           }]);
 
         if (error) {
