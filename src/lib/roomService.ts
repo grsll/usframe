@@ -191,8 +191,23 @@ export const roomService = {
             delete insertPayload.thumbnail_url;
             delete insertPayload.storage_path;
             delete insertPayload.thumbnail_path;
-            const retry = await supabase.from('memories').insert([insertPayload]);
+            
+            if (error.message.includes('uploader_id')) {
+              insertPayload.created_by = insertPayload.uploader_id;
+              delete insertPayload.uploader_id;
+            }
+            
+            let retry = await supabase.from('memories').insert([insertPayload]);
             error = retry.error;
+            
+            if (error && error.message.includes('Could not find the')) {
+               if (insertPayload.uploader_id) {
+                 insertPayload.created_by = insertPayload.uploader_id;
+                 delete insertPayload.uploader_id;
+               }
+               retry = await supabase.from('memories').insert([insertPayload]);
+               error = retry.error;
+            }
           }
 
         if (error) {
@@ -610,15 +625,20 @@ export const roomService = {
     if (isRemote) {
       try {
         // 1. Insert into shared room heart_notes table (shared history with column "note")
-        const { error } = await supabase
-          .from('heart_notes')
-          .insert([{
+        let insertPayload: any = {
             id: newId,
             couple_id: msg.coupleId,
             sender_id: msg.senderId,
             category: 'heart_pulse',
             content: msg.content
-          }]);
+          };
+          let { error } = await supabase.from('heart_notes').insert([insertPayload]);
+          if (error && error.message.includes('Could not find the \'content\' column')) {
+            insertPayload.note = insertPayload.content;
+            delete insertPayload.content;
+            const retry = await supabase.from('heart_notes').insert([insertPayload]);
+            error = retry.error;
+          }
 
         if (error) {
           console.error('Supabase createHeartMessage error:', error);
